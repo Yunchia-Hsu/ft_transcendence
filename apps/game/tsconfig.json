@@ -1,0 +1,9 @@
+// apps/game/tsconfig.json
+{
+  "extends": "../../packages/tsconfig/base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true          // <-- tell tsc to stop writing .d.ts / .js
+  },
+  "include": ["src"]        // no "references" block!
+}
