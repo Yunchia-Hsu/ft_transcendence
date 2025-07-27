@@ -1,8 +1,10 @@
+// App.tsx
+import "./App.css";
 import PongCanvas from "./pong/PongCanvas";
 
 export default function App() {
   return (
-    <div style={{ display: "grid", placeItems: "center", height: "100vh" }}>
+    <div className="viewport">
       <PongCanvas />
     </div>
   );
