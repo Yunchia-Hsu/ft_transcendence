@@ -14,10 +14,6 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "ES2022",
-    "baseUrl": ".",
-    "paths": {
-      "@shared/*": ["packages/shared/src/*"]
-    }
+    "target": "ES2022"
   }
 }
