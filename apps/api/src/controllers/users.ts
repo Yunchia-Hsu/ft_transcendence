@@ -10,6 +10,14 @@ export const loginUser = async (data: any) => {
   return { token, userId: "123" };
 };
 
+export const getAllUsers = async () => {
+  const users = [
+    { userId: "123", username: "Player1", email: "player1@example.com" },
+    { userId: "124", username: "Player2", email: "player2@example.com" },
+  ];
+  return users;
+};
+
 export const getUserProfile = async (userId: string) => {
   const user = { userId, username: "Player1", email: "player1@example.com" };
   return user;

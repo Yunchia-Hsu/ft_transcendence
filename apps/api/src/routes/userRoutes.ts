@@ -8,6 +8,7 @@ import {
   registerUser,
   loginUser,
   getUserProfile,
+  getAllUsers,
   updateUserProfile,
   deleteUserProfile,
 } from "../controllers/users";
@@ -56,6 +57,24 @@ const userRoutes = (app: OpenAPIHono) => {
       const { username, password } = result.data;
       const { token, userId } = await loginUser({ username, password });
       return c.json({ token, userId });
+    }
+  );
+
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/users",
+      responses: {
+        200: { description: "List of users" },
+        404: { description: "No users found" },
+      },
+    }),
+    async (c) => {
+      const users = await getAllUsers();
+      if (!users || users.length === 0) {
+        return c.json({ error: "No users found" }, 404);
+      }
+      return c.json(users);
     }
   );
 
