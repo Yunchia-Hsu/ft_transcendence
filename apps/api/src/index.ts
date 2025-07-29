@@ -1,55 +1,34 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { swaggerUI } from "@hono/swagger-ui";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { serve } from "@hono/node-server";
+import { swaggerUI } from "@hono/swagger-ui";
+import userRoutes from "./routes/userRoutes";
+import gameRoutes from "./routes/gameRoutes";
 
 const app = new OpenAPIHono();
 
-// Define OpenAPI route for "GET /hello"
-app.openapi(
-  createRoute({
-    method: "get",
-    path: "/hello",
-    responses: {
-      200: {
-        description: "Respond with a Hello message",
-        content: {
-          "application/json": {
-            schema: z.object({
-              message: z.string(),
-            }),
-          },
-        },
-      },
-    },
-  }),
-  (c) => {
-    return c.json({
-      message: "Hello World", // Correctly return a valid JSON response
-    });
-  }
-);
+userRoutes(app);
+gameRoutes(app);
 
-// Set up Swagger UI to view OpenAPI docs at /ui
+// Swagger UI: http://localhost:4001/ui
 app.get(
   "/ui",
   swaggerUI({
-    url: "/doc", // Link to OpenAPI documentation URL
+    url: "/doc",
   })
 );
 
-// Set up OpenAPI documentation at /doc
+// OpenAPI Docs: http://localhost:4001/doc
 app.doc("/doc", {
   info: {
-    title: "YKI Success API",
+    title: "Best Pong Game API",
     version: "1.0.0",
+    description: "API for managing users, authentication, and the Pong game.",
   },
-  openapi: "3.0.0", // OpenAPI version
+  openapi: "3.0.0",
 });
 
-// Port configuration (either from environment or default to 4000)
-const port = parseInt(process.env["PORT"] || "4001"); // Change to 4001 to avoid port conflict
+const port = parseInt(process.env["PORT"] || "4001");
 
-// Start the server
 serve(
   {
     fetch: app.fetch,
