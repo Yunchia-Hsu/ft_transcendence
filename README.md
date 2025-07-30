@@ -44,6 +44,7 @@ This project is built with **TurboRepo** for managing multiple packages, **TypeS
 ## Available Scripts
 
 - **`pnpm run dev`**: Starts the development environment, running all tasks defined in your TurboRepo setup.
+- **`pnpm run dev:game`**: Runs the game.
 - **`pnpm run dev:api`**: Runs the API server locally.
 - **`pnpm run build`**: Builds the project (used for production builds).
 - **`pnpm run lint`**: Runs the linter across all packages.
