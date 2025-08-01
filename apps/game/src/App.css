@@ -1,0 +1,28 @@
+/* apps/game/src/app.css */
+html, body, #root { height: 100%; }
+body { margin: 0; }
+
+
+.viewport {
+  height: 70vh;
+  display: grid;
+  place-items: center;    /* centers both axes */
+}
+
+.viewport {
+  min-height: 70dvh;
+  display: grid;
+  place-items: center;
+  align-items: center;
+  background: #0b0b0b;
+}
+
+/* make the canvas center and scale responsively while preserving 4:3 */
+canvas {
+  display: block;              /* remove inline-gap */
+  width: min(100vw, calc(100vh * 4 / 3));
+  height: auto;                /* keep aspect ratio */
+  /* optional sharper look for pixel art */
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
