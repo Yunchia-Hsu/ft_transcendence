@@ -16,3 +16,21 @@ export const userProfileSchema = z.object({
   username: z.string(),
   email: z.string(),
 });
+
+export const refreshSchema = z.object({
+  refreshToken: z.string().min(10, 'Invalid refresh token'),
+});
+
+export const logoutSchema = z.object({
+  refreshToken: z.string().min(10, 'Invalid refresh token'),
+});
+
+export const verifyEmailSchema = z.object({
+  userId: z.string().min(1),
+  code: z.string().length(6, 'Verification code must be 6 digits'),
+});
+
+export const enable2FASchema = z.object({
+  userId: z.string().min(1),
+  totp: z.string().length(6, 'TOTP code must be 6 digits'),
+});

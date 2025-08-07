@@ -2,8 +2,13 @@ import {
   registerSchema,
   loginSchema,
   userProfileSchema,
+  refreshSchema,
+  logoutSchema,
+  verifyEmailSchema,
+  enable2FASchema,
 } from "../schemas/userSchemas";
 
+//controller
 import {
   registerUser,
   loginUser,
@@ -11,6 +16,11 @@ import {
   getAllUsers,
   updateUserProfile,
   deleteUserProfile,
+  refreshToken,
+  logoutUser,
+  getMe,
+  verifyEmail,
+  enable2FA,
 } from "../controllers/users";
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
@@ -141,6 +151,114 @@ const userRoutes = (app: OpenAPIHono) => {
       return c.json(result);
     }
   );
+
+/* 新增：refresh  */
+  
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/api/users/refresh',
+      responses: {
+        200: { description: 'New access / refresh token' },
+        400: { description: 'Invalid token' },
+      },
+    }),
+    async (c) => {
+      const body = await c.req.json();
+      const result = refreshSchema.safeParse(body);
+      if (!result.success) return c.json({ error: result.error.issues }, 400);
+
+      const tokens = await refreshToken(result.data);
+      return c.json(tokens);
+    }
+  );
+
+  /* logout */
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/api/users/logout',
+      responses: {
+        200: { description: 'Logged out' },
+        400: { description: 'Invalid token' },
+      },
+    }),
+    async (c) => {
+      const body = await c.req.json();
+      const result = logoutSchema.safeParse(body);
+      if (!result.success) return c.json({ error: result.error.issues }, 400);
+
+      const res = await logoutUser(result.data);
+      return c.json(res);
+    }
+  );
+
+  /* /me (need JWT middleware)  */
+  app.openapi(
+    createRoute({
+      method: 'get',
+      path: '/api/users/me',
+      security: [{ bearerAuth: [] }], // display on Swagger  need JWT
+      responses: {
+        200: { description: 'Current user info' },
+        401: { description: 'Unauthorized' },
+      },
+    }),
+    async (c) => {
+      const userId = c.get('userId'); // get JWT middleware
+      if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+
+      const me = await getMe(userId);
+      return c.json(me);
+    }
+  );
+
+  /* ─────────── 新增：verify-email ─────────── */
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/api/users/verify-email',
+      responses: {
+        200: { description: 'Email verified' },
+        400: { description: 'Invalid code' },
+      },
+    }),
+    async (c) => {
+      const body = await c.req.json();
+      const result = verifyEmailSchema.safeParse(body);
+      if (!result.success) return c.json({ error: result.error.issues }, 400);
+
+      const res = await verifyEmail(result.data);
+      return c.json(res);
+    }
+  );
+
+  /* ─────────── 新增：enable-2fa (需要 JWT middleware) ─────────── */
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/api/users/enable-2fa',
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: { description: '2FA enabled' },
+        400: { description: 'Invalid TOTP' },
+        401: { description: 'Unauthorized' },
+      },
+    }),
+    async (c) => {
+      const body = await c.req.json();
+      const result = enable2FASchema.safeParse(body);
+      if (!result.success) return c.json({ error: result.error.issues }, 400);
+
+      const userId = c.get('userId');
+      if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+
+      const res = await enable2FA({ ...result.data, userId });
+      return c.json(res);
+    }
+  );
 };
+
+
 
 export default userRoutes;

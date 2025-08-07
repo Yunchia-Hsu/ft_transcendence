@@ -22,8 +22,14 @@ This project is built with **TurboRepo** for managing multiple packages, **TypeS
    Install all dependencies using `pnpm` (the package manager used in this project):
 
    ```bash
+   brew install pnpm
+   ```
+   
+   ```bash
    pnpm install
    ```
+
+   
 
 3. **Run the API**:
    To run the API server, use the following command:

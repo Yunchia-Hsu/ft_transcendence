@@ -31,3 +31,36 @@ export const updateUserProfile = async (userId: string, data: any) => {
 export const deleteUserProfile = async (userId: string) => {
   return { message: "User profile deleted successfully" };
 };
+
+export async function refreshToken(input: { refreshToken: string }) {
+  // TODO: check refreshToken valid or expired
+  // TODO: check accessToken、may need a new refreshToken
+  return {
+    accessToken: 'new.jwt.here',
+    refreshToken: 'new.refresh.token',
+  };
+}
+
+export async function logoutUser(input: { refreshToken: string }) {
+  // TODO: add refreshToken to block list or delete from dashboard
+  return { message: 'Logged out' };
+}
+
+export async function getMe(userId: string) {
+ 
+  return { userId, username: 'demo', email: 'demo@pong.dev' };
+}
+
+export async function verifyEmail(input: {
+  userId: string;
+  code: string;
+}) {
+ 
+  const success = true;
+  return { verified: success };
+}
+
+export async function enable2FA(input: { userId: string; totp: string }) {
+ 
+  return { enabled: true };
+}

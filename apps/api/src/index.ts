@@ -3,8 +3,13 @@ import { serve } from "@hono/node-server";
 import { swaggerUI } from "@hono/swagger-ui";
 import userRoutes from "./routes/userRoutes";
 import gameRoutes from "./routes/gameRoutes";
+import { auth } from "./middlewares/auth";
 
 const app = new OpenAPIHono();
+
+// middleware
+app.use('/api/users/me', auth);
+app.use('/api/users/enable-2fa', auth);
 
 userRoutes(app);
 gameRoutes(app);
