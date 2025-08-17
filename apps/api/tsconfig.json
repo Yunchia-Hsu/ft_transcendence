@@ -1,14 +1,18 @@
 {
   "extends": "../../packages/typescript-config/base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-  "module": "CommonJS",
-  "moduleResolution": "node",
+  "outDir": "./dist",
+   "module": "NodeNext",
+  "moduleResolution": "NodeNext",
     "target": "ES2022",
     "lib": ["ES2022", "DOM"],
     "esModuleInterop": true,
     "noImplicitAny": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "infra/*": ["../../packages/infra/*"]
+    }
   },
   "include": ["src/**/*"]
 }

@@ -1,6 +1,20 @@
-export const startGame = async (data: any) => {
+import { db } from "infra/db/index.js";
+import { randomUUID } from "crypto";
+
+export const startGame = async (data: { player1: string; player2: string }) => {
   const { player1, player2 } = data;
-  const newGame = { gameId: "123", player1, player2 };
+  const gameId = randomUUID();
+
+  const newGame = {
+    game_id: gameId,
+    player1,
+    player2,
+    score: "0-0",
+    status: "In Progress",
+  };
+
+  await db.insertInto("games").values(newGame).execute();
+
   return newGame;
 };
 

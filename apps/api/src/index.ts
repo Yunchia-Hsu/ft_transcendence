@@ -1,11 +1,12 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { serve } from "@hono/node-server";
 import { swaggerUI } from "@hono/swagger-ui";
-import userRoutes from "./routes/userRoutes";
-import gameRoutes from "./routes/gameRoutes";
+import userRoutes from "./routes/userRoutes.js";
+import gameRoutes from "./routes/gameRoutes.js";
+import { initDB } from "infra/db/index.js";
 
 const app = new OpenAPIHono();
-
+await initDB();
 userRoutes(app);
 gameRoutes(app);
 

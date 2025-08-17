@@ -2,8 +2,8 @@ import {
   gameStartSchema,
   gameStatusSchema,
   moveSchema,
-} from "../schemas/gameSchemas";
-import { startGame, getGameStatus, makeMove } from "../controllers/games";
+} from "../schemas/gameSchemas.js";
+import { startGame, getGameStatus, makeMove } from "../controllers/games.js";
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 
 const gameRoutes = (app: OpenAPIHono) => {
@@ -11,6 +11,13 @@ const gameRoutes = (app: OpenAPIHono) => {
     createRoute({
       method: "post",
       path: "/api/games/start",
+      request: {
+        body: {
+          content: {
+            "application/json": { schema: gameStartSchema },
+          },
+        },
+      },
       responses: {
         201: { description: "Game started" },
         400: { description: "Invalid input" },
@@ -18,8 +25,8 @@ const gameRoutes = (app: OpenAPIHono) => {
     }),
     async (c) => {
       const body = await c.req.json();
-
       const result = gameStartSchema.safeParse(body);
+
       if (!result.success) {
         return c.json({ error: result.error.issues }, 400);
       }
