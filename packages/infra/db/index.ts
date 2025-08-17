@@ -2,9 +2,14 @@ import { Kysely, SqliteDialect } from "kysely";
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 
 // ----- DB Paths -----
-const dbDir = path.resolve("packages/infra/db");
+// Use import.meta.url to get the current file path in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const dbDir = path.join(__dirname);
 const dbPath = path.join(dbDir, "games.sqlite");
 
 if (!fs.existsSync(dbDir)) {
