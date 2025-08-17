@@ -1,0 +1,14 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: ft_transcendence_api
+    ports:
+      - "4001:4001"
+    volumes:
+      - ./apps:/app/apps
+      - ./packages/infra/db:/app/packages/infra/db
+      - /app/node_modules
+    environment:
+      - PORT=4001

@@ -1,4 +1,3 @@
-import type { Generated } from "kysely";
 import { Kysely, SqliteDialect } from "kysely";
 import Database from "better-sqlite3";
 import path from "path";
