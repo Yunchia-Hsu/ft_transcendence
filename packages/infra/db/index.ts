@@ -1,24 +1,23 @@
+import type { Generated } from "kysely";
 import { Kysely, SqliteDialect } from "kysely";
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
+// ----- DB Paths -----
 const dbDir = path.resolve("packages/infra/db");
 const dbPath = path.join(dbDir, "games.sqlite");
 
-console.log("DB folder:", dbDir);
-console.log("DB file path:", dbPath);
-
 if (!fs.existsSync(dbDir)) {
-  console.log("DB folder not found, creating it...");
   fs.mkdirSync(dbDir, { recursive: true });
+  console.log("DB folder created:", dbDir);
 } else {
-  console.log("DB folder exists!");
+  console.log("DB folder exists:", dbDir);
 }
 
-// Interfaces
+// ----- Interfaces -----
 export interface Game {
-  game_id: string;
+  game_id: string; // Primary key
   player1: string;
   player2: string;
   score: string;
@@ -29,16 +28,20 @@ export interface DatabaseSchema {
   games: Game;
 }
 
-// SQLite file
+// ----- Create DB function -----
+export const createDb = (): Kysely<DatabaseSchema> => {
+  const db = new Kysely<DatabaseSchema>({
+    dialect: new SqliteDialect({
+      database: new Database(dbPath), // synchronous
+    }),
+  });
+  return db;
+};
 
-// Kysely DB instance
-export const db = new Kysely<DatabaseSchema>({
-  dialect: new SqliteDialect({
-    database: new Database(dbPath), // ✅ synchronous, fully typed
-  }),
-});
+// ----- Export a single DB instance -----
+export const db = createDb();
 
-// Initialize table if not exists
+// ----- Initialize table if not exists -----
 export const initDB = async () => {
   await db.schema
     .createTable("games")
