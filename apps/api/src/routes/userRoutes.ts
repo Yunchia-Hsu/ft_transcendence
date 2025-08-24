@@ -1,3 +1,4 @@
+//驗證規則
 import {
   registerSchema,
   loginSchema,
@@ -8,7 +9,7 @@ import {
   enable2FASchema,
 } from "../schemas/userSchemas";
 
-//controller
+//controller業務邏輯層 這些是 controller 裡的函數，真的去做事（查資料庫、雜湊密碼、簽 JWT…）。
 import {
   registerUser,
   loginUser,
@@ -59,7 +60,7 @@ const userRoutes = (app: OpenAPIHono) => {
     }),
     async (c) => {
       const body = await c.req.json();
-      const result = loginSchema.safeParse(body);
+      const result = loginSchema.safeParse(body);//用事先定義好的 loginSchema（Zod schema）檢查 body 格式正不正確（例如是否有 username、password，而且型別正確）。
       if (!result.success) {
         return c.json({ error: result.error.issues }, 400);
       }
@@ -119,7 +120,7 @@ const userRoutes = (app: OpenAPIHono) => {
     async (c) => {
       const { userId } = c.req.param();
       const body = await c.req.json();
-      const result = userProfileSchema.safeParse(body);
+      const result = userProfileSchema.safeParse(body);// zod
       if (!result.success) {
         return c.json({ error: result.error.issues }, 400);
       }
@@ -152,8 +153,8 @@ const userRoutes = (app: OpenAPIHono) => {
     }
   );
 
-/* 新增：refresh  */
-  
+
+  //resend token（refresh）
   app.openapi(
     createRoute({
       method: 'post',
@@ -209,6 +210,7 @@ const userRoutes = (app: OpenAPIHono) => {
       if (!userId) return c.json({ error: 'Unauthorized' }, 401);
 
       const me = await getMe(userId);
+      if (!me) return c.json({ error: 'Not found' }, 404);
       return c.json(me);
     }
   );
@@ -233,7 +235,7 @@ const userRoutes = (app: OpenAPIHono) => {
     }
   );
 
-  /* ─────────── 新增：enable-2fa (需要 JWT middleware) ─────────── */
+  //added enable-2fa (need JWT middleware) */
   app.openapi(
     createRoute({
       method: 'post',

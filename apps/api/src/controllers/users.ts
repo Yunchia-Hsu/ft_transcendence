@@ -64,3 +64,25 @@ export async function enable2FA(input: { userId: string; totp: string }) {
  
   return { enabled: true };
 }
+
+/*
+你現在的 controller 檔如何「就地升級」
+
+把每個 TODO/假資料 依序替換：
+
+registerUser：查重 → argon2.hash() → repo.create() → 回「淨化過的使用者」。
+
+loginUser：repo.findByUsernameOrEmail() → argon2.verify() → jwt.sign()。
+
+refreshToken：檢查 refreshToken 白/黑名單 → 簽新 accessToken（必要時也換 refresh）。
+
+logoutUser：把 refreshToken 加入黑名單或刪除。
+
+updateUserProfile：比對 c.get('userId') 或 admin → repo.update() → 409/404 正確回應。
+
+deleteUserProfile：同上權限 → repo.remove()。
+
+getMe / getUserProfile：查 DB → 回安全欄位。
+
+verifyEmail / enable2FA：與 Redis/DB/OTP 驗證邏輯串起來。
+*/
