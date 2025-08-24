@@ -31,9 +31,15 @@ const gameRoutes = (app: OpenAPIHono) => {
         },
       },
       responses: {
-        201: { description: "Game started" },
+        201: {
+          description: "Game started",
+          content: { "application/json": { schema: gameSchema } },
+        },
         400: { description: "Invalid input" },
       },
+      tags: ["games"],
+      summary: "Start a manual game",
+      operationId: "startGame",
     }),
     async (c) => {
       const body = await c.req.json();
@@ -54,9 +60,16 @@ const gameRoutes = (app: OpenAPIHono) => {
       method: "get",
       path: "/api/games/:gameId",
       responses: {
-        200: { description: "Game status" },
+        200: {
+          description: "Game status",
+          content: { "application/json": { schema: gameSchema } },
+        },
+        400: { description: "Invalid gameId" },
         404: { description: "Game not found" },
       },
+      tags: ["games"],
+      summary: "Get game status by ID",
+      operationId: "getGameStatus",
     }),
     async (c) => {
       const { gameId } = c.req.param();
@@ -90,6 +103,9 @@ const gameRoutes = (app: OpenAPIHono) => {
         200: { description: "Move processed" },
         400: { description: "Invalid move" },
       },
+      tags: ["games"],
+      summary: "Submit a move for a game",
+      operationId: "makeMove",
     }),
     async (c) => {
       const { gameId } = c.req.param();
@@ -123,6 +139,9 @@ const gameRoutes = (app: OpenAPIHono) => {
           },
         },
       },
+      tags: ["games"],
+      summary: "List games (filter by status/player)",
+      operationId: "listGames",
     }),
     async (c) => {
       // ✅ parsed & typed query (throws 400 automatically if invalid)
