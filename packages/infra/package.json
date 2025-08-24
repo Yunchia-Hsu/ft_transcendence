@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx db/index.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
