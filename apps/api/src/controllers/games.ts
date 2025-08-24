@@ -47,3 +47,25 @@ export const makeMove = async (
   // For now just return a dummy response
   return { message: "Move processed", gameId, playerId, move };
 };
+
+export const listGames = async (
+  db: Kysely<DatabaseSchema>,
+  filters?: { status?: string; player?: string }
+): Promise<Game[]> => {
+  let q = db.selectFrom("games").selectAll();
+
+  if (filters?.status) {
+    q = q.where("status", "=", filters.status);
+  }
+  if (filters?.player) {
+    // match either player1 or player2
+    q = q.where((eb) =>
+      eb.or([
+        eb("player1", "=", filters.player!),
+        eb("player2", "=", filters.player!),
+      ])
+    );
+  }
+
+  return await q.execute();
+};

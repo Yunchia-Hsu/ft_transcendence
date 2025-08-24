@@ -2,10 +2,18 @@ import {
   gameStartSchema,
   gameStatusSchema,
   moveSchema,
+  gameSchema,
+  listGamesQuerySchema,
 } from "../schemas/gameSchemas.js";
-import { startGame, getGameStatus, makeMove } from "../controllers/games.js";
+import {
+  startGame,
+  getGameStatus,
+  makeMove,
+  listGames,
+} from "../controllers/games.js";
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
-import { createDb } from "infra/db/index.js"; // ✅ use factory instead of singleton
+import { createDb, db } from "infra/db/index.js"; // ✅ use factory instead of singleton
+import app from "src/index.js";
 
 const gameRoutes = (app: OpenAPIHono) => {
   // create a DB instance for this route module
@@ -95,6 +103,33 @@ const gameRoutes = (app: OpenAPIHono) => {
       const { playerId, move } = result.data;
       const response = await makeMove(db, gameId, { playerId, move }); // pass db
       return c.json(response);
+    }
+  );
+
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/games",
+      request: {
+        query: listGamesQuerySchema, // ✅ zod-openapi validates this
+      },
+      responses: {
+        200: {
+          description: "List of games",
+          content: {
+            "application/json": {
+              schema: gameSchema.array(),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      // ✅ parsed & typed query (throws 400 automatically if invalid)
+      const query = c.req.valid("query"); // { status?: string; player?: string }
+
+      const games = await listGames(db, query);
+      return c.json(games, 200);
     }
   );
 };
