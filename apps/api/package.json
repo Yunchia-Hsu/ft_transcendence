@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx --watch src/index.ts",
+    "dev": "pnpm exec tsx --watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
@@ -16,12 +16,12 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "hono": "^4.8.1",
+    "kysely": "^0.28.5",
     "sqlite3": "^5.1.7",
     "zod": "^4.0.8"
   },
   "devDependencies": {
-    "@types/node": "^20.11.17",
-    "tsx": "^4.7.1",
+    "@types/node": "^20.19.9",
     "typescript": "^5.8.3"
   }
 }

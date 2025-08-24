@@ -1,0 +1,21 @@
+{
+  "name": "infra",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx db/index.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "kysely": "^0.28.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.11.17",
+    "tsx": "^4.7.1",
+    "typescript": "^5.9.2"
+  }
+}

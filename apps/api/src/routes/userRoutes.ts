@@ -2,7 +2,7 @@ import {
   registerSchema,
   loginSchema,
   userProfileSchema,
-} from "../schemas/userSchemas";
+} from "../schemas/userSchemas.js";
 
 import {
   registerUser,
@@ -11,7 +11,7 @@ import {
   getAllUsers,
   updateUserProfile,
   deleteUserProfile,
-} from "../controllers/users";
+} from "../controllers/users.js";
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 
