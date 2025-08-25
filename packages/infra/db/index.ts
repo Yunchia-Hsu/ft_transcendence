@@ -57,7 +57,21 @@ export interface DatabaseSchema {
   matchmaking_queue: MatchmakingQueue;
   tournaments: Tournament;
   tournament_participants: TournamentParticipant;
+  users: DatabaseUser; // yunchia added 
 }
+
+export interface DatabaseUser {    //yunchia added 25.08
+  userid: string;
+  username: string;
+  displayname: string | null;
+  email: string;
+  password: string;
+  isEmailVerified: boolean;
+  createdAt: string;
+  avatar: string | null;
+  status: string;
+}
+
 
 // ----- Create DB function -----
 export const createDb = (): Kysely<DatabaseSchema> => {
@@ -125,4 +139,100 @@ export const initDB = async () => {
     .execute();
 
   console.log("DB init: ensured tables games, matchmaking_queue");
+  // user data
+  await db.schema
+    .createTable("users")
+    .ifNotExists()
+    .addColumn("userid", "text", (col) => col.primaryKey())
+    .addColumn("username", "text", (col) => col.notNull().unique())
+    .addColumn("displayname", "text")
+    .addColumn("email", "text", (col) => col.notNull().unique())
+    .addColumn("password", "text", (col) => col.notNull())
+    .addColumn("isEmailVerified", "integer", (col) => col.notNull().defaultTo(0))
+    .addColumn("createdAt", "text", (col) => col.notNull())
+    .addColumn("avatar", "text")
+    .addColumn("status", "text", (col) => col.notNull().defaultTo("offline"))
+    .execute();
+  
+    console.log("DB init: ensured tables games, matchmaking_queue");
+};
+
+// 在你的 index.ts 檔案最後加入這些函數
+
+// 檢查用戶是否已存在
+export const checkUserExists = async (username: string, email: string): Promise<boolean> => {
+  const existingUser = await db
+    .selectFrom("users")
+    .select("userid")
+    .where((eb) => eb.or([
+      eb("username", "=", username),
+      eb("email", "=", email)
+    ]))
+    .executeTakeFirst();
+
+  return existingUser !== undefined;
+};
+
+// 儲存新用戶到資料庫
+export const saveUserToDatabase = async (user: DatabaseUser): Promise<void> => {
+  await db
+    .insertInto("users")
+    .values({
+      userid: user.userid,
+      username: user.username,
+      displayname: user.displayname,
+      email: user.email,
+      password: user.password,
+      isEmailVerified: user.isEmailVerified ? (1 as any) : (0 as any), // SQLite 使用 integer 儲存 boolean
+      createdAt: user.createdAt,
+      avatar: user.avatar,
+      status: user.status,
+    })
+    .execute();
+};
+
+// 根據用戶名取得用戶
+export const getUserByUsername = async (username: string): Promise<DatabaseUser | null> => {
+  const user = await db
+    .selectFrom("users")
+    .selectAll()
+    .where("username", "=", username)
+    .executeTakeFirst();
+
+  if (!user) return null;
+
+  return {
+    userid: user.userid,
+    username: user.username,
+    displayname: user.displayname,
+    email: user.email,
+    password: user.password,
+    isEmailVerified: user.isEmailVerified, // Already a boolean
+    createdAt: user.createdAt,
+    avatar: user.avatar,
+    status: user.status,
+  };
+};
+
+// 根據 userid 取得用戶
+export const getUserById = async (userid: string): Promise<DatabaseUser | null> => {
+  const user = await db
+    .selectFrom("users")
+    .selectAll()
+    .where("userid", "=", userid)
+    .executeTakeFirst();
+
+  if (!user) return null;
+
+  return {
+    userid: user.userid,
+    username: user.username,
+    displayname: user.displayname,
+    email: user.email,
+    password: user.password,
+    isEmailVerified: user.isEmailVerified,
+    createdAt: user.createdAt,
+    avatar: user.avatar,
+    status: user.status,
+  };
 };

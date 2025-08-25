@@ -32,7 +32,7 @@ app.doc("/doc", {
   openapi: "3.0.0",
 });
 
-const port = parseInt(process.env["PORT"] || "4001");
+const port = parseInt(process.env["PORT"] || "4001"); //take from .env or use 4001
 
 serve(
   {
