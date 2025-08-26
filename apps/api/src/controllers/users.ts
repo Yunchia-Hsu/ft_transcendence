@@ -1,12 +1,12 @@
-import { saveUserToDatabase, checkUserExists, getUserByUsername } from '../../../../packages/infra/db/index.js';
+import { saveUserToDatabase, checkUserExists, getUserByUsername, getUserByEmail  } from '../../../../packages/infra/db/index.js';
 import { DatabaseUser } from "../../../../packages/infra/db/index.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 let nextId = 1;
-export function generateUserId() {
-  return String(nextId++); 
-}
+const generateUserId = (): string => {
+  return String(nextId++);
+};
 
 export const registerUser = async (data: { username: string; email: string; password: string }) => {
   const { username, email, password } = data;
@@ -41,7 +41,7 @@ export const registerUser = async (data: { username: string; email: string; pass
   
   // 回傳時不包含密碼
   return {
-    userId: newUser.userId,
+    userId: newUser.userid,
     username: newUser.username,
     email: newUser.email,
     createdAt: newUser.createdAt,
@@ -50,12 +50,88 @@ export const registerUser = async (data: { username: string; email: string; pass
 
 
 
-// 🔧 實際使用 password - 例如驗證密碼
-export const loginUser = async (data: any) => {
+// // 🔧 實際使用 password - 例如驗證密碼
+// export const loginUser = async (data: { email: string; password: string }) => {
+//   const { email, password } = data;
+//   //驗證用戶是否存在
+//   if (!email){
+//     throw new Error('not a valid user');
+//   } 
+
+  
+  // //驗證用戶是否存在
+  // if (!(await bcrypt.compare(password, data.password))){
+  //   throw new Error('invalid password');
+  //   }
+  // }
+// //驗證用戶是否存在
+//   const token = jwt.sign({email, username: user.username }, key);
+//   console.log('token: ', token);
+//   //驗證用戶是否存在
+//   res.send({
+//     message: 'log in successfully!!!',
+//     token
+//   })
+//   return { token, userId: "123" };
+// };  
+
+
+
+// export const loginUser = async (data: { email: string; password: string }) => {
+//   const { email, password } = data;
+  
+//   // 1. 驗證用戶是否存在
+//   const user = await getUserByUsername(email);
+//   if (!user) {
+//     throw new Error('Invalid credentials');
+//   }
+  
+//   // 2. 驗證密碼是否正確
+//   const isValidPassword = await bcrypt.compare(password, user.password);
+//   if (!isValidPassword) {
+//     throw new Error('Invalid credentials');
+//   }
+  
+//   // 3. 生成 JWT token
+//   const token = jwt.sign(
+//     { 
+//       email, 
+//       username: user.username 
+//     },
+//     process.env.JWT_SECRET || 'your-secret-key',
+//     { expiresIn: '24h' }
+//   );
+
+export const loginUser = async (data: { username: string; password: string }) => {
   const { username, password } = data;
-  const token = "generated-jwt-token";
-  return { token, userId: "123" };
-};  
+  
+  const user = await getUserByUsername(username);
+  if (!user) {
+    throw new Error('Invalid credentials');
+  }
+  
+  const isValidPassword = await bcrypt.compare(password, user.password);
+  if (!isValidPassword) {
+    throw new Error('Invalid credentials');
+  }
+  
+  const token = jwt.sign(
+    { 
+      userId: user.userid,  // 建議使用 userId 而非 email
+      username: user.username 
+    },
+    process.env.JWT_SECRET || 'your-secret-key',
+    { expiresIn: '24h' }
+  );
+  
+  return { 
+    token, 
+    userId: user.userid 
+  };
+};
+  
+
+
 
 export const getAllUsers = async () => {
   const users = [
@@ -64,6 +140,8 @@ export const getAllUsers = async () => {
   ];
   return users;
 };
+
+
 
 export const getUserProfile = async (username: string): Promise<DatabaseUser | null> => {
   const user: DatabaseUser = {                         

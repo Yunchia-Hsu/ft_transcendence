@@ -18,7 +18,8 @@ import {
 
 import { verifyToken } from "../utils/auth.js"; // for get me 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-
+import { getUserByUsername, getUserByEmail } from '../../../../packages/infra/db/index.js';
+//let JWT_SECRET = "key_for_test",// need to add to env.
 
 const userRoutes = (app: OpenAPIHono) => {
   
@@ -69,6 +70,16 @@ const userRoutes = (app: OpenAPIHono) => {
             },
           },
         },
+        500: {  
+          description: "Internal server error",
+          content: {
+            "application/json": {
+              schema: z.object({
+                error: z.string(),
+              }),
+            },
+          },
+        },
       },
     }),
     async (c) => {
@@ -100,53 +111,93 @@ const userRoutes = (app: OpenAPIHono) => {
     }
   );
   
-  // app.openapi(
-  //   createRoute({
-  //     method: "post",
-  //     path: "/api/auth/users/register",
-  //     responses: {
-  //       201: { description: "User registered successfully" },
-  //       400: { description: "Invalid input" },
-  //     },
-  //   }),
-  //   async (c) => {
-  //     const body = await c.req.json();
-  //     const result = registerSchema.safeParse(body);
-  //     if (!result.success) {
-  //       return c.json({ error: result.error.issues }, 400);
-  //     }
-  //     const { username, email, password } = result.data;
-  //     //加密密碼
-  //     const hashPassword = await bcrypt.hash(password, 10);
-  //     console.log(hashPassword);
-  //     //資料儲存
-      
-  //    //回應 controller
-  //     const newUser = await registerUser({ username, email, hashPassword });
-  //     return c.json(newUser, 201);
-  //   }
-    
-  // );
 
+  
+  // use username and password to log in
   app.openapi(
     createRoute({
       method: "post",
       path: "/api/auth/users/login",
+      request: {
+        body: {
+          content: {
+            "application/json": {
+              schema: loginSchema,
+            },
+          },
+        },
+      },
       responses: {
-        200: { description: "Login successful" },
-        401: { description: "Unauthorized" },
+        200: { 
+          description: "Login successful",
+          content: {
+            "application/json": {
+              schema: z.object({
+                token: z.string(),
+                userId: z.string(),
+              }),
+            },
+          },
+        },
+        400: { 
+          description: "Invalid input",
+          content: {
+            "application/json": {
+              schema: z.object({
+                error: z.array(z.any()),
+              }),
+            },
+          },
+        },
+        401: { 
+          description: "Unauthorized - Invalid credentials",
+          content: {
+            "application/json": {
+              schema: z.object({
+                error: z.string(),
+              }),
+            },
+          },
+        },
+        500: {
+          description: "Internal server error",
+          content: {
+            "application/json": {
+              schema: z.object({
+                error: z.string(),
+              }),
+            },
+          },
+        },
       },
     }),
     async (c) => {
-      const body = await c.req.json();
-      const result = loginSchema.safeParse(body);
-      if (!result.success) {
-        return c.json({ error: result.error.issues }, 400);
+      try {
+        const body = await c.req.json();
+        const result = loginSchema.safeParse(body);
+        
+        if (!result.success) {
+          return c.json({ error: result.error.issues }, 400);
+        }
+  
+        const { username, password } = result.data;
+        const loginResult = await loginUser({ username, password });
+        
+        return c.json(loginResult, 200);
+        
+      } catch (error) {
+        console.error('Login error:', error);
+        
+        // handle invalid credentials
+        if (error instanceof Error && (   
+          error.message.includes('not found') || 
+          error.message.includes('Invalid credentials')
+        )) {
+          return c.json({ error: "Invalid credentials" }, 401);
+        }
+        
+        return c.json({ error: "Login failed" }, 500);
       }
-
-      const { username, password } = result.data;
-      const { token, userId } = await loginUser({ username, password });
-      return c.json({ token, userId });
     }
   );
 

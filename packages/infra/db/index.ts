@@ -74,14 +74,26 @@ export interface DatabaseUser {    //yunchia added 25.08
 
 
 // ----- Create DB function -----
+// export const createDb = (): Kysely<DatabaseSchema> => {
+//   const db = new Kysely<DatabaseSchema>({
+//     dialect: new SqliteDialect({
+//       database: new Database(dbPath),
+//     }),
+//   });
+//   return db;
+// };
 export const createDb = (): Kysely<DatabaseSchema> => {
-  const db = new Kysely<DatabaseSchema>({
-    dialect: new SqliteDialect({
-      database: new Database(dbPath),
-    }),
+  const sqlite = new Database(dbPath);
+
+  // non block 
+  sqlite.pragma('journal_mode = WAL');   // (Write-Ahead Logging) one write in multi read 
+  sqlite.pragma('busy_timeout = 5000');  // wait 5sec and go to SQLITE_BUSY
+
+  return new Kysely<DatabaseSchema>({
+    dialect: new SqliteDialect({ database: sqlite }),
   });
-  return db;
 };
+
 
 // ----- Export a single DB instance -----
 export const db = createDb();
@@ -154,12 +166,11 @@ export const initDB = async () => {
     .addColumn("status", "text", (col) => col.notNull().defaultTo("offline"))
     .execute();
   
-    console.log("DB init: ensured tables games, matchmaking_queue");
+    console.log("DB init: ensured tables games, matchmaking_queue, users");
 };
 
-// 在你的 index.ts 檔案最後加入這些函數
 
-// 檢查用戶是否已存在
+// check if users exists
 export const checkUserExists = async (username: string, email: string): Promise<boolean> => {
   const existingUser = await db
     .selectFrom("users")
@@ -173,7 +184,7 @@ export const checkUserExists = async (username: string, email: string): Promise<
   return existingUser !== undefined;
 };
 
-// 儲存新用戶到資料庫
+// save users to database
 export const saveUserToDatabase = async (user: DatabaseUser): Promise<void> => {
   await db
     .insertInto("users")
@@ -230,6 +241,28 @@ export const getUserById = async (userid: string): Promise<DatabaseUser | null> 
     displayname: user.displayname,
     email: user.email,
     password: user.password,
+    isEmailVerified: user.isEmailVerified,
+    createdAt: user.createdAt,
+    avatar: user.avatar,
+    status: user.status,
+  };
+};
+
+export const getUserByEmail = async (email: string): Promise<DatabaseUser | null> => {
+  const user = await db
+    .selectFrom('users')
+    .selectAll()
+    .where('email', '=', email)
+    .executeTakeFirst();
+
+  if (!user) return null;
+
+  return {
+    userid: user.userid,
+    username: user.username,
+    displayname: user.displayname,
+    email: user.email,
+    password: user.password,            
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
     avatar: user.avatar,
