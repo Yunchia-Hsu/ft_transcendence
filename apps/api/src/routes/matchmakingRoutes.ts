@@ -1,12 +1,13 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { createDb } from "infra/db/index.js";
-import { enqueue } from "../controllers/matchmaking.js";
+import { enqueue, dequeue } from "../controllers/matchmaking.js";
 import {
   enqueueBodySchema,
   enqueueResponseQueuedSchema,
   enqueueResponseMatchedSchema,
   enqueueResponseConflictSchema,
   enqueueErrorSchema,
+  dequeueBodySchemaRt,
 } from "../schemas/matchmakingSchemas.js";
 
 const matchmakingRoutes = (app: OpenAPIHono) => {
@@ -99,6 +100,67 @@ const matchmakingRoutes = (app: OpenAPIHono) => {
         }
       } catch (err) {
         console.error("enqueue error:", err);
+        return c.json(
+          {
+            ok: false,
+            code: "SERVER_ERROR",
+            message: (err as Error).message,
+          } as const,
+          500
+        );
+      }
+    }
+  );
+
+  // DELETE /api/matchmaking/queue — leave queue
+  app.openapi(
+    createRoute({
+      method: "delete",
+      path: "/api/matchmaking/queue",
+      // NOTE: no request.body declared → Swagger won’t show body schema
+      responses: {
+        200: { description: "Left queue (returns ok + removed flag)" },
+        400: { description: "Invalid body" },
+        500: { description: "Server error" },
+      },
+      tags: ["matchmaking"],
+      summary: "Leave the matchmaking queue",
+    }),
+    async (c) => {
+      try {
+        const raw = await c.req.text();
+        if (!raw.trim()) {
+          return c.json({ ok: false, code: "INVALID_BODY" } as const, 400);
+        }
+
+        let body: unknown;
+        try {
+          body = JSON.parse(raw);
+        } catch {
+          return c.json({ ok: false, code: "INVALID_BODY" } as const, 400);
+        }
+
+        const parsed = dequeueBodySchemaRt.safeParse(body);
+        if (!parsed.success) {
+          return c.json(
+            {
+              ok: false,
+              code: "INVALID_BODY",
+              issues: parsed.error.issues,
+            } as const,
+            400
+          );
+        }
+
+        const { userId } = parsed.data;
+        const { removed } = await dequeue(db, userId);
+        if (!removed) {
+          return c.json({ ok: false, code: "NOT_FOUND", userId } as const, 404);
+        }
+
+        return c.json({ ok: true, removed, userId }, 200);
+      } catch (err) {
+        console.error("dequeue error:", err);
         return c.json(
           {
             ok: false,

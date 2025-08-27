@@ -84,3 +84,20 @@ export const enqueue = async (
     };
   });
 };
+
+export const dequeue = async (
+  db: Kysely<DatabaseSchema>,
+  userId: string
+): Promise<{ removed: boolean }> => {
+  const res = await db
+    .deleteFrom("matchmaking_queue")
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
+
+  const num =
+    typeof res.numDeletedRows === "bigint"
+      ? Number(res.numDeletedRows)
+      : (res.numDeletedRows ?? 0);
+
+  return { removed: num > 0 };
+};

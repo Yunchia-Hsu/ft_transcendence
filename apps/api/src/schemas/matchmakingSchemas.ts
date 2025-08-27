@@ -29,3 +29,7 @@ export const enqueueErrorSchema = z.object({
   message: z.string().optional(),
   issues: z.any().optional(),
 });
+
+export const dequeueBodySchemaRt = z.object({
+  userId: z.string().min(1),
+});
