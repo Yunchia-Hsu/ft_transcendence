@@ -33,3 +33,19 @@ export const enqueueErrorSchema = z.object({
 export const dequeueBodySchemaRt = z.object({
   userId: z.string().min(1),
 });
+
+export const statusParamsSchema = z.object({
+  userId: z.string().min(1).openapi({
+    example: "SuperUser",
+  }),
+});
+
+export const statusResponseSchema = z.union([
+  z.object({ status: z.literal("idle") }),
+  z.object({ status: z.literal("queued") }),
+  z.object({
+    status: z.literal("matched"),
+    matchId: z.string(),
+    opponent: z.object({ userId: z.string() }),
+  }),
+]);

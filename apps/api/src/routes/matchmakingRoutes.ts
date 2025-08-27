@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { createDb } from "infra/db/index.js";
-import { enqueue, dequeue } from "../controllers/matchmaking.js";
+import { enqueue, dequeue, getStatus } from "../controllers/matchmaking.js";
 import {
   enqueueBodySchema,
   enqueueResponseQueuedSchema,
@@ -8,6 +8,8 @@ import {
   enqueueResponseConflictSchema,
   enqueueErrorSchema,
   dequeueBodySchemaRt,
+  statusParamsSchema,
+  statusResponseSchema,
 } from "../schemas/matchmakingSchemas.js";
 
 const matchmakingRoutes = (app: OpenAPIHono) => {
@@ -161,6 +163,46 @@ const matchmakingRoutes = (app: OpenAPIHono) => {
         return c.json({ ok: true, removed, userId }, 200);
       } catch (err) {
         console.error("dequeue error:", err);
+        return c.json(
+          {
+            ok: false,
+            code: "SERVER_ERROR",
+            message: (err as Error).message,
+          } as const,
+          500
+        );
+      }
+    }
+  );
+
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/matchmaking/status/{userId}", // 👈 path param
+      request: {
+        params: statusParamsSchema,
+      },
+      responses: {
+        200: {
+          description: "Current matchmaking status",
+          content: { "application/json": { schema: statusResponseSchema } },
+        },
+        400: {
+          description: "Invalid param",
+          content: { "application/json": { schema: enqueueErrorSchema } },
+        },
+        500: { description: "Server error" },
+      },
+      tags: ["matchmaking"],
+      summary: "Get matchmaking status for the given user",
+    }),
+    async (c) => {
+      try {
+        // validated userId from path
+        const { userId } = c.req.valid("param");
+        const result = await getStatus(db, userId);
+        return c.json(result, 200);
+      } catch (err) {
         return c.json(
           {
             ok: false,

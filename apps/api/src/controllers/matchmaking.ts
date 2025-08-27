@@ -101,3 +101,46 @@ export const dequeue = async (
 
   return { removed: num > 0 };
 };
+
+export type StatusResult =
+  | { status: "idle" }
+  | { status: "queued" }
+  | { status: "matched"; matchId: string; opponent: { userId: string } };
+
+export const getStatus = async (
+  db: Kysely<DatabaseSchema>,
+  userId: string
+): Promise<StatusResult> => {
+  // 1) active game? (anything not 'Completed')
+  const active = await db
+    .selectFrom("games")
+    .select(["game_id", "player1", "player2", "status"])
+    .where((eb) =>
+      eb.or([eb("player1", "=", userId), eb("player2", "=", userId)])
+    )
+    .where("status", "!=", "Completed")
+    .orderBy("game_id", "desc")
+    .executeTakeFirst();
+
+  if (active) {
+    const opponentId =
+      active.player1 === userId ? active.player2 : active.player1;
+    return {
+      status: "matched",
+      matchId: active.game_id,
+      opponent: { userId: opponentId },
+    };
+  }
+
+  // 2) queued?
+  const queued = await db
+    .selectFrom("matchmaking_queue")
+    .select(["user_id"])
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
+
+  if (queued) return { status: "queued" };
+
+  // 3) idle
+  return { status: "idle" };
+};

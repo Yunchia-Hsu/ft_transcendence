@@ -2,7 +2,6 @@
   "name": "ft_transcendence",
   "private": true,
  "scripts": {
-    "predev": "docker compose up -d",
     "dev": "turbo run dev --filter=!api --filter=!infra",
     "dev:local": "docker compose down && turbo run dev",
     "dev:api": "pnpm --filter api run dev",
