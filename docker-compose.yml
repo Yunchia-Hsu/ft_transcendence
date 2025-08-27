@@ -6,19 +6,13 @@ services:
     container_name: ft_transcendence_api
     ports:
       - "4001:4001"
+    working_dir: /app/apps/api
     volumes:
-      - ./apps:/app/apps
-      - ./packages:/app/packages
-      # use the named volume for the DB directory
+      - ./apps/api:/app/apps/api
       - games-data:/app/data
-      # keep node_modules isolated from your host (can also name it if you want)
-      - /app/node_modules
     environment:
       - PORT=4001
       - DB_DIR=/app/data
 
 volumes:
   games-data:
-    external: false # (default) Docker manages it
-  # If you prefer a named node_modules volume instead of anonymous:
-  # api-node-modules:
