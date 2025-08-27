@@ -1,23 +1,31 @@
-import { z } from "zod";
+import { z } from "@hono/zod-openapi";
 
 export const enqueueBodySchema = z.object({
   userId: z.string().min(1),
+  mode: z.enum(["1v1"]).optional().default("1v1"),
 });
 
-export const enqueueResponseSchema = z.union([
-  z.object({ matched: z.literal(false) }),
-  z.object({
-    matched: z.literal(true),
-    game: z.object({
-      game_id: z.string(),
-      player1: z.string(),
-      player2: z.string(),
-      score: z.string(),
-      status: z.string(),
-    }),
-  }),
-  z.object({
-    ok: z.literal(false),
-    reason: z.enum(["ALREADY_IN_GAME"]),
-  }),
-]);
+export const enqueueResponseQueuedSchema = z.object({
+  status: z.literal("queued"),
+  userId: z.string(),
+  mode: z.enum(["1v1"]),
+});
+
+export const enqueueResponseMatchedSchema = z.object({
+  status: z.literal("matched"),
+  userId: z.string(),
+  opponent: z.object({ userId: z.string() }),
+  matchId: z.string(),
+});
+
+export const enqueueResponseConflictSchema = z.object({
+  ok: z.literal(false),
+  code: z.literal("ALREADY_IN_GAME"),
+});
+
+export const enqueueErrorSchema = z.object({
+  ok: z.literal(false),
+  code: z.enum(["INVALID_BODY", "SERVER_ERROR"]),
+  message: z.string().optional(),
+  issues: z.any().optional(),
+});
