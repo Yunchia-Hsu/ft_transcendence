@@ -9,7 +9,8 @@ import {
 
 export const createTournament = async (
   db: Kysely<DatabaseSchema>,
-  data: { name: string; type: TournamentTypeEnum; size: number }
+  data: { name: string; type: TournamentTypeEnum; size: number },
+  ownerId: string // <- pass separately
 ): Promise<TournamentDTO> => {
   const id = randomUUID();
   const createdAt = new Date().toISOString();
@@ -19,9 +20,10 @@ export const createTournament = async (
     .values({
       id,
       name: data.name,
-      type: data.type, // "single_elim"
+      type: data.type,
       size: data.size,
-      status: TournamentStatusEnum.PENDING, // "pending"
+      status: TournamentStatusEnum.PENDING,
+      owner_id: ownerId, // <- use param
       created_at: createdAt,
     })
     .execute();
@@ -29,7 +31,7 @@ export const createTournament = async (
   return {
     id,
     name: data.name,
-    type: TournamentTypeEnum.SINGLE_ELIM,
+    type: data.type,
     size: data.size,
     status: TournamentStatusEnum.PENDING,
     createdAt,

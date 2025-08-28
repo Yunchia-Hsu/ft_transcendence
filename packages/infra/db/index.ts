@@ -36,6 +36,7 @@ export interface Tournament {
   type: string; // "single_elim"
   size: number; // 4, 8, 16...
   status: string; // "pending" | "ongoing" | "completed"
+  owner_id: string;
   created_at: string; // ISO
 }
 
@@ -100,6 +101,7 @@ export const initDB = async () => {
     .addColumn("size", "integer")
     .addColumn("status", "text")
     .addColumn("created_at", "text")
+    .addColumn("owner_id", "text")
     .execute();
 
   await db.schema

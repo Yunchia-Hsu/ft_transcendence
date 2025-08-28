@@ -8,6 +8,7 @@ export const tournamentCreateSchema = z.object({
     .nativeEnum(TournamentTypeEnum)
     .openapi({ example: TournamentTypeEnum.SINGLE_ELIM }),
   size: z.number().int().positive().openapi({ example: 8 }),
+  ownerId: z.string().min(1),
 });
 
 // Response DTO

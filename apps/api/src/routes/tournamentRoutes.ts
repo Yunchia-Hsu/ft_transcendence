@@ -51,7 +51,12 @@ const tournamentRoutes = (app: OpenAPIHono) => {
             400
           );
         }
-        const created = await createTournament(db, parsed.data);
+        const ownerId = c.req.header("x-user-id");
+        if (!ownerId) {
+          return c.json({ ok: false, code: "UNAUTHORIZED" } as const, 401);
+        }
+
+        const created = await createTournament(db, parsed.data, ownerId);
         return c.json(created, 201);
       } catch (err) {
         return c.json(
