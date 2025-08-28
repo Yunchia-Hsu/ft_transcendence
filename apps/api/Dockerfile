@@ -17,7 +17,7 @@ COPY packages ./packages
 
 RUN mkdir -p packages/infra/db
 
-EXPOSE 4001
 WORKDIR /app/apps/api
-CMD ["pnpm", "dev"]   # tsx --watch, so .ts is fine
+EXPOSE 4001
+CMD ["pnpm", "dev"]
 

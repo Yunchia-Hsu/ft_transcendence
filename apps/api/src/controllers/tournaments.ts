@@ -45,3 +45,35 @@ export const listTournaments = async (db: Kysely<DatabaseSchema>) => {
 
   return { items: rows, total: rows.length };
 };
+
+const roundsFor = (size: number) => Math.log2(size);
+
+export const getTournamentDetail = async (
+  db: Kysely<DatabaseSchema>,
+  tournamentId: string
+) => {
+  const t = await db
+    .selectFrom("tournaments")
+    .selectAll()
+    .where("id", "=", tournamentId)
+    .executeTakeFirst();
+
+  if (!t) return null;
+
+  const participants =
+    (await db
+      .selectFrom("tournament_participants")
+      .select(["user_id as userId", "nickname"])
+      .where("tournament_id", "=", tournamentId)
+      .orderBy("joined_at", "asc")
+      .execute()) ?? [];
+
+  return {
+    id: t.id,
+    name: t.name,
+    status: t.status as keyof typeof TournamentStatusEnum,
+    size: t.size,
+    rounds: roundsFor(t.size),
+    participants,
+  };
+};

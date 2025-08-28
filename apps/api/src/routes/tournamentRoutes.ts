@@ -4,10 +4,13 @@ import {
   tournamentCreateSchema,
   tournamentItemSchema,
   tournamentsListResponseSchema,
+  tournamentDetailSchema,
+  tournamentIdParamSchema,
 } from "../schemas/tournamentSchemas.js";
 import {
   createTournament,
   listTournaments,
+  getTournamentDetail,
 } from "../controllers/tournaments.js";
 
 const tournamentRoutes = (app: OpenAPIHono) => {
@@ -79,6 +82,40 @@ const tournamentRoutes = (app: OpenAPIHono) => {
       try {
         const result = await listTournaments(db);
         return c.json(result, 200);
+      } catch (err) {
+        return c.json(
+          { ok: false, code: "SERVER_ERROR", message: (err as Error).message },
+          500
+        );
+      }
+    }
+  );
+
+  // GET /api/tournaments/{tournamentId} — details
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/tournaments/{tournamentId}",
+      request: { params: tournamentIdParamSchema },
+      responses: {
+        200: {
+          description: "Tournament details",
+          content: { "application/json": { schema: tournamentDetailSchema } },
+        },
+        404: { description: "Not found" },
+        500: { description: "Server error" },
+      },
+      tags: ["tournaments"],
+      summary: "Get tournament details",
+      operationId: "getTournamentDetail",
+    }),
+    async (c) => {
+      try {
+        const { tournamentId } = c.req.valid("param");
+        const detail = await getTournamentDetail(db, tournamentId);
+
+        if (!detail) return c.json({ ok: false, code: "NOT_FOUND" }, 404);
+        return c.json(detail, 200);
       } catch (err) {
         return c.json(
           { ok: false, code: "SERVER_ERROR", message: (err as Error).message },

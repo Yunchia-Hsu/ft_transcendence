@@ -30,3 +30,24 @@ export const tournamentsListResponseSchema = z.object({
   items: z.array(tournamentsListItemSchema),
   total: z.number().int(),
 });
+
+export const tournamentIdParamSchema = z.object({
+  tournamentId: z
+    .string()
+    .uuid()
+    .openapi({ example: "6f1b1a2f-2a7e-4f3a-bc8f-0b6f6a6f0e9a" }),
+});
+
+export const tournamentDetailSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  status: z.nativeEnum(TournamentStatusEnum),
+  size: z.number().int(),
+  rounds: z.number().int(), // log2(size)
+  participants: z.array(
+    z.object({
+      userId: z.string(),
+      nickname: z.string(),
+    })
+  ),
+});
