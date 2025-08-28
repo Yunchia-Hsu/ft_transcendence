@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    pull_policy: never
     container_name: ft_transcendence_api
     ports:
       - "4001:4001"

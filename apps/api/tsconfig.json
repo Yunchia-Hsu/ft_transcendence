@@ -14,5 +14,6 @@
       "infra/*": ["../../packages/infra/*"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "references": [{ "path": "../../packages/types" }]
 }
