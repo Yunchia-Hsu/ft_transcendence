@@ -51,3 +51,9 @@ export const tournamentDetailSchema = z.object({
     })
   ),
 });
+
+export const errorSchema = z.object({
+  ok: z.literal(false),
+  code: z.string().openapi({ example: "NOT_FOUND" }),
+  message: z.string().optional(),
+});

@@ -6,16 +6,19 @@ import {
   tournamentsListResponseSchema,
   tournamentDetailSchema,
   tournamentIdParamSchema,
+  errorSchema,
 } from "../schemas/tournamentSchemas.js";
 import {
   createTournament,
   listTournaments,
   getTournamentDetail,
+  deleteTournament,
 } from "../controllers/tournaments.js";
 
 const tournamentRoutes = (app: OpenAPIHono) => {
   const db = createDb();
 
+  // POST /api/tournaments — create
   app.openapi(
     createRoute({
       method: "post",
@@ -48,8 +51,6 @@ const tournamentRoutes = (app: OpenAPIHono) => {
             400
           );
         }
-
-        // TODO: auth/role check (admin/organizer)
         const created = await createTournament(db, parsed.data);
         return c.json(created, 201);
       } catch (err) {
@@ -60,6 +61,7 @@ const tournamentRoutes = (app: OpenAPIHono) => {
       }
     }
   );
+
   // GET /api/tournaments — list
   app.openapi(
     createRoute({
@@ -113,12 +115,57 @@ const tournamentRoutes = (app: OpenAPIHono) => {
       try {
         const { tournamentId } = c.req.valid("param");
         const detail = await getTournamentDetail(db, tournamentId);
-
         if (!detail) return c.json({ ok: false, code: "NOT_FOUND" }, 404);
         return c.json(detail, 200);
       } catch (err) {
         return c.json(
           { ok: false, code: "SERVER_ERROR", message: (err as Error).message },
+          500
+        );
+      }
+    }
+  );
+
+  // DELETE /api/tournaments/{tournamentId} — delete
+  app.openapi(
+    createRoute({
+      method: "delete",
+      path: "/api/tournaments/{tournamentId}",
+      request: { params: tournamentIdParamSchema },
+      responses: {
+        204: { description: "Tournament deleted" },
+        404: {
+          description: "Not found",
+          content: {
+            "application/json": {
+              schema: errorSchema,
+              examples: {
+                notFound: { value: { ok: false, code: "NOT_FOUND" } },
+              },
+            },
+          },
+        },
+        500: { description: "Server error" },
+      },
+      tags: ["tournaments"],
+      summary: "Delete a tournament (admin/owner)",
+      operationId: "deleteTournament",
+    }),
+    async (c) => {
+      try {
+        const { tournamentId } = c.req.valid("param");
+        const result = await deleteTournament(db, tournamentId);
+        if (result === "NOT_FOUND") {
+          return c.json({ ok: false, code: "NOT_FOUND" } as const, 404);
+        }
+        return c.body(null, 204);
+      } catch (err) {
+        return c.json(
+          {
+            ok: false,
+            code: "SERVER_ERROR",
+            message: (err as Error).message,
+          } as const,
           500
         );
       }

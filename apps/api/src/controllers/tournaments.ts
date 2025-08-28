@@ -77,3 +77,26 @@ export const getTournamentDetail = async (
     participants,
   };
 };
+
+export const deleteTournament = async (
+  db: Kysely<DatabaseSchema>,
+  tournamentId: string
+): Promise<"NOT_FOUND" | "DELETED"> => {
+  const existing = await db
+    .selectFrom("tournaments")
+    .select("id")
+    .where("id", "=", tournamentId)
+    .executeTakeFirst();
+
+  if (!existing) return "NOT_FOUND";
+
+  // delete participants first (FK safety if you add constraints later)
+  await db
+    .deleteFrom("tournament_participants")
+    .where("tournament_id", "=", tournamentId)
+    .execute();
+
+  await db.deleteFrom("tournaments").where("id", "=", tournamentId).execute();
+
+  return "DELETED";
+};
