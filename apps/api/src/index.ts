@@ -6,6 +6,7 @@ import gameRoutes from "./routes/gameRoutes.js";
 import matchmakingRoutes from "./routes/matchmakingRoutes.js";
 import tournamentRoutes from "./routes/tournamentRoutes.js";
 import { initDB } from "infra/db/index.js";
+import { config } from 'dotenv';
 
 const app = new OpenAPIHono();
 await initDB();

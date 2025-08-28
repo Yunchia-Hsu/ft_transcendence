@@ -1,11 +1,13 @@
-import { saveUserToDatabase, checkUserExists, getUserByUsername, getUserByEmail  } from '../../../../packages/infra/db/index.js';
+import { saveUserToDatabase, checkUserExists, getUserByUsername, getUserById  } from '../../../../packages/infra/db/index.js';
 import { DatabaseUser } from "../../../../packages/infra/db/index.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
+import { JWT_SECRET } from '../config/jwt.js';
 
 let nextId = 1;
 const generateUserId = (): string => {
-  return String(nextId++);
+  return randomUUID();
 };
 
 export const registerUser = async (data: { username: string; email: string; password: string }) => {
@@ -101,6 +103,7 @@ export const registerUser = async (data: { username: string; email: string; pass
 //     process.env.JWT_SECRET || 'your-secret-key',
 //     { expiresIn: '24h' }
 //   );
+//const JWT_SECRET = process.env.JWT_SECRET!;
 
 export const loginUser = async (data: { username: string; password: string }) => {
   const { username, password } = data;
@@ -115,15 +118,22 @@ export const loginUser = async (data: { username: string; password: string }) =>
     throw new Error('Invalid credentials');
   }
   
-  const token = jwt.sign(
-    { 
-      userId: user.userid,  // 建議使用 userId 而非 email
-      username: user.username 
-    },
-    process.env.JWT_SECRET || 'your-secret-key',
-    { expiresIn: '24h' }
-  );
-  
+  // const token = jwt.sign(
+  //   { 
+  //     userId: user.userid,  // 建議使用 userId 而非 email
+  //     username: user.username,
+  //     email: user.email
+  //   },
+  //   process.env.JWT_SECRET || 'your-secret-key',
+  //   { expiresIn: '48h' }invalid signature
+  // );
+ let jwtsecret = 'secret';
+const token = jwt.sign(
+  { userId: user.userid, username: user.username, email: user.email },
+  jwtsecret,
+  { algorithm: 'HS256', expiresIn: '48h' }
+);
+  console.log('token from login:', token);
   return { 
     token, 
     userId: user.userid 
@@ -143,16 +153,24 @@ export const getAllUsers = async () => {
 
 
 
-export const getUserProfile = async (username: string): Promise<DatabaseUser | null> => {
-  const user: DatabaseUser = {                         
-    username: username, 
-    displayname: "Best pong player",                
-    email: "player1@example.com",
-    password: "hashedPassword123",         
-    isEmailVerified: true,                    
-    avatar: "https://example.com/avatar1.jpg", 
-    status: "online",
-  };                          
+export const getUserProfile = async (userid: string): Promise<DatabaseUser | null> => {
+  // 從資料庫撈一筆
+  const row = await getUserById (userid);
+  if (!row) return null;
+
+  // 如果你想明確映射（也可直接 return row）
+  const user: DatabaseUser = {
+    userid: row.userid,
+    username: row.username,
+    displayname: row.displayname,               // string | null
+    email: row.email,
+    password: row.password,                     // bcrypt 雜湊，/me 不要回傳
+    isEmailVerified: !!row.isEmailVerified,     // 確保是 boolean
+    createdAt: row.createdAt,
+    avatar: row.avatar,                         // string | null
+    status: row.status ?? 'offline',
+  };
+                       
   return user;
 };
 
@@ -165,10 +183,10 @@ export const deleteUserProfile = async (userId: string) => {
   return { message: "User profile deleted successfully" };
 };
 
-export const getCurrentUser = async (username: string) => {
+export const getCurrentUser = async (userid: string) => {
   try {
     
-    const user: DatabaseUser | null = await getUserProfile(username);
+    const user: DatabaseUser | null = await getUserProfile(userid);
     
     if (!user) {
       return null;

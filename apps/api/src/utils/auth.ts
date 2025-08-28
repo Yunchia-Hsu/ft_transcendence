@@ -15,15 +15,23 @@ interface TokenVerificationResult {
   userId?: string;
   error?: string;
 }
-export const extractUserIdFromToken = (authHeader: string | undefined) => {
+export const extractUserIdFromToken = (authHeader: string) => {
   try {
-    // 預期格式：'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new Error('Invalid authorization header');
+    let token: string;
+    // 檢查是否有 Bearer 前綴
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else {
+      token = authHeader;
     }
 
-    const token:string = authHeader.substring(7); // 移除 'Bearer ' 
-    const jwtSecret = process.env.JWT_SECRET;
+    //let jwtSecret = process.env.JWT_SECRET;
+    
+    // if (!process.env.JWT_SECRET ) {
+    //   throw new Error('&&&&JWT_SECRET too weak or missing');
+    // }
+    const jwtSecret = 'secret';
+    console.log('jwtsecret: ', jwtSecret);
     if (!jwtSecret) {
       throw new Error('JWT_SECRET is not defined in environment variables');
     }
@@ -32,20 +40,41 @@ export const extractUserIdFromToken = (authHeader: string | undefined) => {
         throw new Error('Token does not contain userId');
     }
     
-    return decoded.userId; // 假設你的 JWT payload 有 userId
+    return decoded.userId; 
   } catch (error) {
-    throw new Error('Invalid or expired token');
+
+    console.log('Token verification error:', error);
+          
+    if (error instanceof jwt.JsonWebTokenError) {
+      throw new Error('Invalid token format');
+    } else if (error instanceof jwt.TokenExpiredError) {
+      throw new Error('Token expired');
+    } else {
+      throw new Error('Invalid or Expired token');
+    }
   }
 };
 
-export const verifyToken = (authHeader: string | undefined): TokenVerificationResult => {
+
+
+export function verifyToken(authHeader: string): TokenVerificationResult {
   try {
-    const userId = extractUserIdFromToken(authHeader);
-    return { valid: true, userId };
-  } catch (error) {
-    return { 
-        valid: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : authHeader;
+
+    const decoded = jwt.verify(token, 'secret') as { userId: string };//JWT_SECRET
+
+    return {
+      valid: true,
+      userId: decoded.userId,
+      error: '',
+    };
+  } catch (err) {
+    return {
+      valid: false,
+      userId: '',
+      error: 'Invalid token formatttt',
     };
   }
-};
+}

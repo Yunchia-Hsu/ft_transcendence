@@ -335,25 +335,30 @@ const userRoutes = (app: OpenAPIHono) => {
     }),
     async (c) => {
       try {
-        // 1. 取得並驗證 Authorization header
-        const authHeader = c.req.header("authorization");
+        // 1. get Authorization header
+        const authHeader = c.req.header("Authorization");
+        console.log('tooooken: ', authHeader);
         if (!authHeader) {
-          return c.json({ error: "Authorization header is required" }, 401);
+          return c.json({ error: "Authorization header is required 未登入" }, 401);
         }
 
-        // 2. 驗證 token 並取得 userId
+        // 2. veryfy token and get userId
         const tokenVerification = verifyToken(authHeader);
+        console.log('userid: ', tokenVerification);
         if (!tokenVerification.valid) {
           return c.json({ error: tokenVerification.error }, 401);
         }
-
-        // 3. 取得用戶資訊
+ 
+        // 3. retrieve user info
+        if (!tokenVerification.userId) {
+          return c.json({ error: "Invalid token: userId is missing" }, 401);
+        }
         const userInfo = await getCurrentUser(tokenVerification.userId);
         if (!userInfo) {
           return c.json({ error: "User not found" }, 404);
         }
 
-        // 4. 回傳用戶資訊
+        // 4. return user info
         return c.json(userInfo, 200);
 
       } catch (error) {
@@ -364,7 +369,11 @@ const userRoutes = (app: OpenAPIHono) => {
   );
 };
 
-
+/*
+use command to test me router
+curl -X GET http://localhost:4001/api/auth/me \
+  -H "Authorization: Bearer ey"
+*/
 
 
 
