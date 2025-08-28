@@ -1,4 +1,4 @@
-import { saveUserToDatabase, checkUserExists, getUserByUsername, getUserById  } from '../../../../packages/infra/db/index.js';
+import { saveUserToDatabase, checkUserExists, getUserByUsername, getUserById, db  } from '../../../../packages/infra/db/index.js';
 import { DatabaseUser } from "../../../../packages/infra/db/index.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -41,7 +41,7 @@ export const registerUser = async (data: { username: string; email: string; pass
   // save data to data base
   await saveUserToDatabase(newUser);
   
-  // 回傳時不包含密碼
+  // no password
   return {
     userId: newUser.userid,
     username: newUser.username,
@@ -51,59 +51,6 @@ export const registerUser = async (data: { username: string; email: string; pass
 };
 
 
-
-// // 🔧 實際使用 password - 例如驗證密碼
-// export const loginUser = async (data: { email: string; password: string }) => {
-//   const { email, password } = data;
-//   //驗證用戶是否存在
-//   if (!email){
-//     throw new Error('not a valid user');
-//   } 
-
-  
-  // //驗證用戶是否存在
-  // if (!(await bcrypt.compare(password, data.password))){
-  //   throw new Error('invalid password');
-  //   }
-  // }
-// //驗證用戶是否存在
-//   const token = jwt.sign({email, username: user.username }, key);
-//   console.log('token: ', token);
-//   //驗證用戶是否存在
-//   res.send({
-//     message: 'log in successfully!!!',
-//     token
-//   })
-//   return { token, userId: "123" };
-// };  
-
-
-
-// export const loginUser = async (data: { email: string; password: string }) => {
-//   const { email, password } = data;
-  
-//   // 1. 驗證用戶是否存在
-//   const user = await getUserByUsername(email);
-//   if (!user) {
-//     throw new Error('Invalid credentials');
-//   }
-  
-//   // 2. 驗證密碼是否正確
-//   const isValidPassword = await bcrypt.compare(password, user.password);
-//   if (!isValidPassword) {
-//     throw new Error('Invalid credentials');
-//   }
-  
-//   // 3. 生成 JWT token
-//   const token = jwt.sign(
-//     { 
-//       email, 
-//       username: user.username 
-//     },
-//     process.env.JWT_SECRET || 'your-secret-key',
-//     { expiresIn: '24h' }
-//   );
-//const JWT_SECRET = process.env.JWT_SECRET!;
 
 export const loginUser = async (data: { username: string; password: string }) => {
   const { username, password } = data;
@@ -118,15 +65,6 @@ export const loginUser = async (data: { username: string; password: string }) =>
     throw new Error('Invalid credentials');
   }
   
-  // const token = jwt.sign(
-  //   { 
-  //     userId: user.userid,  // 建議使用 userId 而非 email
-  //     username: user.username,
-  //     email: user.email
-  //   },
-  //   process.env.JWT_SECRET || 'your-secret-key',
-  //   { expiresIn: '48h' }invalid signature
-  // );
  let jwtsecret = 'secret';
 const token = jwt.sign(
   { userId: user.userid, username: user.username, email: user.email },
@@ -143,28 +81,37 @@ const token = jwt.sign(
 
 
 
-export const getAllUsers = async () => {
-  const users = [
-    { userId: "123", username: "Player1", email: "player1@example.com" },
-    { userId: "124", username: "Player2", email: "player2@example.com" },
-  ];
+export const getAllUsers = async (): Promise<Partial<DatabaseUser>[]> => {
+  const users = await db
+    .selectFrom("users")
+    .select([
+      "userid",
+      "username",
+      "email",
+      "displayname",
+      "isEmailVerified",
+      "createdAt",
+      "avatar",
+      "status",
+    ])
+    .execute();
   return users;
 };
 
 
 
 export const getUserProfile = async (userid: string): Promise<DatabaseUser | null> => {
-  // 從資料庫撈一筆
+ 
   const row = await getUserById (userid);
   if (!row) return null;
 
-  // 如果你想明確映射（也可直接 return row）
+ 
   const user: DatabaseUser = {
     userid: row.userid,
     username: row.username,
     displayname: row.displayname,               // string | null
     email: row.email,
-    password: row.password,                     // bcrypt 雜湊，/me 不要回傳
+    password: row.password,                     // bcrypt 
     isEmailVerified: !!row.isEmailVerified,     // 確保是 boolean
     createdAt: row.createdAt,
     avatar: row.avatar,                         // string | null
