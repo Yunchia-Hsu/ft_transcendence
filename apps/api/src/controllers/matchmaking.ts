@@ -1,25 +1,21 @@
+// controllers/matchmaking.ts
 import type { Kysely } from "kysely";
 import { randomUUID } from "crypto";
 import type { DatabaseSchema, Game } from "infra/db/index.js";
 
-/**
- * Enqueue user for quick play.
- * - If someone is waiting: pair immediately, create a game, return { matched:true, game }
- * - Otherwise: add to queue, return { matched:false }
- * - Idempotent: re-enqueue returns matched:false
- * - Guard: if already in active game -> return conflict-like payload
- */
+export type EnqueueResult =
+  | { type: "QUEUED"; userId: string; mode: "1v1" }
+  | { type: "MATCHED"; userId: string; opponentUserId: string; matchId: string }
+  | { type: "ALREADY_IN_QUEUE"; userId: string; mode: "1v1" }
+  | { type: "ALREADY_IN_GAME" };
+
 export const enqueue = async (
   db: Kysely<DatabaseSchema>,
-  userId: string
-): Promise<
-  | { matched: false }
-  | { matched: true; game: Game }
-  | { ok: false; reason: "ALREADY_IN_GAME" }
-> => {
-  // Single transaction to avoid race conditions
+  userId: string,
+  mode: "1v1" = "1v1"
+): Promise<EnqueueResult> => {
   return await db.transaction().execute(async (trx) => {
-    // Guard: already in an active game? (treat anything not 'Completed' as active)
+    // Guard: active game?
     const active = await trx
       .selectFrom("games")
       .select(["game_id", "status"])
@@ -30,10 +26,10 @@ export const enqueue = async (
       .executeTakeFirst();
 
     if (active) {
-      return { ok: false, reason: "ALREADY_IN_GAME" } as const;
+      return { type: "ALREADY_IN_GAME" };
     }
 
-    // Idempotency: already in queue?
+    // Idempotent: already in queue?
     const existing = await trx
       .selectFrom("matchmaking_queue")
       .selectAll()
@@ -41,10 +37,10 @@ export const enqueue = async (
       .executeTakeFirst();
 
     if (existing) {
-      return { matched: false } as const;
+      return { type: "ALREADY_IN_QUEUE", userId, mode };
     }
 
-    // Look for earliest other waiting user
+    // Find earliest other waiting user
     const other = await trx
       .selectFrom("matchmaking_queue")
       .selectAll()
@@ -53,16 +49,17 @@ export const enqueue = async (
       .executeTakeFirst();
 
     if (!other) {
-      // nobody waiting -> enqueue this user
+      // enqueue current user
       await trx
         .insertInto("matchmaking_queue")
         .values({ user_id: userId, queued_at: new Date().toISOString() })
-        .onConflict((oc) => oc.column("user_id").doNothing()) // extra safety
+        .onConflict((oc) => oc.column("user_id").doNothing())
         .execute();
-      return { matched: false } as const;
+
+      return { type: "QUEUED", userId, mode };
     }
 
-    // Found opponent -> remove them from queue and create game
+    // Found opponent -> remove them and create game
     await trx
       .deleteFrom("matchmaking_queue")
       .where("user_id", "=", other.user_id)
@@ -74,11 +71,76 @@ export const enqueue = async (
       player1: other.user_id,
       player2: userId,
       score: "0-0",
-      status: "In Progress", // or "Waiting" until both WS join
+      status: "In Progress",
     };
 
     await trx.insertInto("games").values(newGame).execute();
 
-    return { matched: true, game: newGame } as const;
+    return {
+      type: "MATCHED",
+      userId,
+      opponentUserId: other.user_id,
+      matchId: gameId,
+    };
   });
+};
+
+export const dequeue = async (
+  db: Kysely<DatabaseSchema>,
+  userId: string
+): Promise<{ removed: boolean }> => {
+  const res = await db
+    .deleteFrom("matchmaking_queue")
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
+
+  const num =
+    typeof res.numDeletedRows === "bigint"
+      ? Number(res.numDeletedRows)
+      : (res.numDeletedRows ?? 0);
+
+  return { removed: num > 0 };
+};
+
+export type StatusResult =
+  | { status: "idle" }
+  | { status: "queued" }
+  | { status: "matched"; matchId: string; opponent: { userId: string } };
+
+export const getStatus = async (
+  db: Kysely<DatabaseSchema>,
+  userId: string
+): Promise<StatusResult> => {
+  // 1) active game? (anything not 'Completed')
+  const active = await db
+    .selectFrom("games")
+    .select(["game_id", "player1", "player2", "status"])
+    .where((eb) =>
+      eb.or([eb("player1", "=", userId), eb("player2", "=", userId)])
+    )
+    .where("status", "!=", "Completed")
+    .orderBy("game_id", "desc")
+    .executeTakeFirst();
+
+  if (active) {
+    const opponentId =
+      active.player1 === userId ? active.player2 : active.player1;
+    return {
+      status: "matched",
+      matchId: active.game_id,
+      opponent: { userId: opponentId },
+    };
+  }
+
+  // 2) queued?
+  const queued = await db
+    .selectFrom("matchmaking_queue")
+    .select(["user_id"])
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
+
+  if (queued) return { status: "queued" };
+
+  // 3) idle
+  return { status: "idle" };
 };

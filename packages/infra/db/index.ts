@@ -30,6 +30,23 @@ export interface Game {
   status: string;
 }
 
+export interface Tournament {
+  id: string;
+  name: string;
+  type: string; // "single_elim"
+  size: number; // 4, 8, 16...
+  status: string; // "pending" | "ongoing" | "completed"
+  owner_id: string;
+  created_at: string; // ISO
+}
+
+export interface TournamentParticipant {
+  tournament_id: string;
+  user_id: string;
+  nickname: string;
+  joined_at: string; // ISO
+}
+
 export interface MatchmakingQueue {
   user_id: string;
   queued_at: string; // timestamp
@@ -38,6 +55,8 @@ export interface MatchmakingQueue {
 export interface DatabaseSchema {
   games: Game;
   matchmaking_queue: MatchmakingQueue;
+  tournaments: Tournament;
+  tournament_participants: TournamentParticipant;
 }
 
 // ----- Create DB function -----
@@ -71,6 +90,38 @@ export const initDB = async () => {
     .ifNotExists()
     .addColumn("user_id", "text", (col) => col.primaryKey())
     .addColumn("queued_at", "text")
+    .execute();
+
+  await db.schema
+    .createTable("tournaments")
+    .ifNotExists()
+    .addColumn("id", "text", (c) => c.primaryKey())
+    .addColumn("name", "text")
+    .addColumn("type", "text")
+    .addColumn("size", "integer")
+    .addColumn("status", "text")
+    .addColumn("created_at", "text")
+    .addColumn("owner_id", "text")
+    .execute();
+
+  await db.schema
+    .createTable("tournament_participants")
+    .ifNotExists()
+    .addColumn(
+      "tournament_id",
+      "text",
+      (col) => col.notNull()
+      // if we decide on FK and cascade:
+      // .references("tournaments.id")
+      // .onDelete("cascade")
+    )
+    .addColumn("user_id", "text", (col) => col.notNull())
+    .addColumn("nickname", "text", (col) => col.notNull())
+    .addColumn("joined_at", "text", (col) => col.notNull())
+    .addPrimaryKeyConstraint("tournament_participants_pk", [
+      "tournament_id",
+      "user_id",
+    ])
     .execute();
 
   console.log("DB init: ensured tables games, matchmaking_queue");

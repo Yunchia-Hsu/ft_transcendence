@@ -1,30 +1,42 @@
-import { z } from "zod";
+import { z } from "@hono/zod-openapi";
 
 export const gameStartSchema = z.object({
-  player1: z.string().min(1, "Player 1 name is required"),
-  player2: z.string().min(1, "Player 2 name is required"),
+  player1: z.string().min(1).openapi({ example: "alice123" }),
+  player2: z.string().min(1).openapi({ example: "bob456" }),
 });
 
-export const gameStatusSchema = z.object({
-  gameId: z.string().min(1, "Game ID is required"),
+export const gameParamSchema = z.object({
+  gameId: z
+    .string()
+    .uuid()
+    .openapi({ example: "1909a6a3-f219-4f25-a486-e123602f984f" }),
 });
+
+export const moveParamSchema = gameParamSchema; // same shape
 
 export const moveSchema = z.object({
-  playerId: z.string().min(1, "Player ID is required"),
-  move: z.string().min(1, "Move action is required"),
+  playerId: z.string().min(1).openapi({ example: "alice123" }),
+  move: z.enum(["UP", "DOWN", "STAY"]).openapi({ example: "UP" }),
 });
 
-// ✅ describe a Game row (for responses)
 export const gameSchema = z.object({
-  game_id: z.string(),
+  game_id: z.string().uuid(),
   player1: z.string(),
   player2: z.string(),
   score: z.string(),
   status: z.string(),
 });
 
-// ✅ optional filters for GET /api/games
+export const makeMoveSuccessSchema = z.object({
+  ok: z.literal(true),
+  accepted: z.literal(true),
+  game: gameSchema,
+});
+
 export const listGamesQuerySchema = z.object({
-  status: z.string().optional(), // e.g., "In Progress", "Finished"
-  player: z.string().optional(), // matches either player1 or player2
+  status: z
+    .enum(["In Progress", "Completed"])
+    .optional()
+    .openapi({ example: "In Progress" }),
+  player: z.string().optional().openapi({ example: "alice123" }),
 });

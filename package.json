@@ -1,28 +1,27 @@
 {
   "name": "ft_transcendence",
   "private": true,
- "scripts": {
-    "predev": "docker compose up -d",
-    "dev": "turbo run dev --filter=!api --filter=!infra",
+  "scripts": {
+    "dev": "turbo run dev",
     "dev:local": "docker compose down && turbo run dev",
     "dev:api": "pnpm --filter api run dev",
     "dev:game": "pnpm --filter game run dev",
-
     "build": "turbo run build",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
     "up": "docker compose up -d",
     "down": "docker compose down",
+    "restart": "docker compose restart api",
     "logs": "docker compose logs -f api",
-    "rebuild": "docker compose build --no-cache && docker compose up -d"
+    "rebuild": "docker compose down -v --rmi local --remove-orphans && docker compose build --no-cache && docker compose up -d"
   },
   "devDependencies": {
     "@typescript-eslint/parser": "8.37.0",
     "prettier": "^3.6.2",
-    "turbo": "^2.5.5",
-    "typescript": "5.8.3",
-    "tsx": "^4.7.1"
+    "tsx": "^4.20.5",
+    "turbo": "^2.5.6",
+    "typescript": "5.8.3"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {

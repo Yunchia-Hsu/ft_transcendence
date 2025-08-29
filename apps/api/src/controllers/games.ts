@@ -8,10 +8,10 @@ export const startGame = async (
   data: { player1: string; player2: string }
 ) => {
   const { player1, player2 } = data;
-  const gameId = randomUUID();
+  const matchId = randomUUID();
 
   const newGame: Game = {
-    game_id: gameId,
+    game_id: matchId,
     player1,
     player2,
     score: "0-0",
@@ -25,27 +25,45 @@ export const startGame = async (
 
 export const getGameStatus = async (
   db: Kysely<DatabaseSchema>,
-  gameId: string
+  matchId: string
 ) => {
   const gameStatus = await db
     .selectFrom("games")
     .selectAll()
-    .where("game_id", "=", gameId)
+    .where("game_id", "=", matchId)
     .executeTakeFirst();
 
   return gameStatus ?? null;
 };
 
+type MakeMoveInput = { playerId: string; move: "UP" | "DOWN" | "STAY" };
 export const makeMove = async (
   db: Kysely<DatabaseSchema>,
   gameId: string,
-  data: { playerId: string; move: string }
-) => {
-  const { playerId, move } = data;
+  { playerId, move }: MakeMoveInput
+): Promise<
+  | { ok: true; accepted: true; game: Game }
+  | {
+      ok: false;
+      code: "GAME_NOT_FOUND" | "PLAYER_NOT_IN_GAME" | "INVALID_MOVE";
+    }
+> => {
+  const game = await db
+    .selectFrom("games")
+    .selectAll()
+    .where("game_id", "=", gameId)
+    .executeTakeFirst();
 
-  // Example: update score or log move
-  // For now just return a dummy response
-  return { message: "Move processed", gameId, playerId, move };
+  if (!game) return { ok: false, code: "GAME_NOT_FOUND" };
+
+  if (playerId !== game.player1 && playerId !== game.player2) {
+    return { ok: false, code: "PLAYER_NOT_IN_GAME" };
+  }
+
+  if (!["UP", "DOWN", "STAY"].includes(move)) {
+    return { ok: false, code: "INVALID_MOVE" };
+  }
+  return { ok: true, accepted: true, game };
 };
 
 export const listGames = async (

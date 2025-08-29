@@ -28,43 +28,86 @@ pnpm install
 By default, `pnpm run dev` starts Docker (API + DB) and then runs everything **except** the API/infra locally (e.g., the frontend).
 Your root scripts:
 
-**Day-to-day dev**
+# 📜 Scripts Cheat Sheet
 
-- `predev` 🐳⚙️ — **Auto-runs before `dev`**. Starts (or keeps) Docker containers in the background (`docker compose up -d`) so the API + DB are ready. Safe to run repeatedly; won’t wipe data. You normally **don’t call it directly**—just run `pnpm run dev`.
-- `pnpm run dev` 🚀 — Backend in **Docker**, frontend locally (hot reload). _(Runs `predev` automatically.)_
+### **Switch modes**
 
-**Switch modes**
+- **`pnpm run dev`** 🚀
+  Run **all packages** in dev mode using Turbo (`turbo run dev`).
+  → Starts API, game frontend, infra, etc.
 
-- `pnpm run dev:local` 💻 — Stop Docker; run **everything locally** (API + frontend).
-- `pnpm run dev:api` 🔧 — Run **only the API locally** (make sure Docker API isn’t running).
-- `pnpm run dev:game` 🎮 — Run **only the frontend** (use when API is in Docker).
+- **`pnpm run dev:local`** 💻
+  `docker compose down && turbo run dev`
+  → First stop Docker containers (so they don’t clash with ports), then run everything locally with Turbo.
 
-**Docker control**
+- **`pnpm run dev:api`** 🔧
+  `pnpm --filter api run dev`
+  → Only start the **API service** locally (ignores everything else).
 
-- `pnpm run up` 🐳⬆️ — Start containers (API + DB volume).
-- `pnpm run down` 🐳⬇️ — Stop containers (data stays).
-- `pnpm run logs` 📜 — Tail API container logs.
-- `pnpm run rebuild` 🛠️ — Rebuild image (no cache) and restart.
+- **`pnpm run dev:game`** 🎮
+  `pnpm --filter game run dev`
+  → Only start the **game frontend** locally. Use this when API is running separately (e.g., in Docker).
 
-**Build & quality**
+---
 
-- `pnpm run build` 🏗️ — Build all packages.
-- `pnpm run lint` 🧹 — Lint code.
-- `pnpm run format` ✨ — Format files.
-- `pnpm run check-types` 🔍 — Type-check all packages.
+### **Docker control**
+
+- **`pnpm run up`** 🐳⬆️
+  `docker compose up -d`
+  → Start Docker containers in detached mode (API, DB, etc).
+
+- **`pnpm run down`** 🐳⬇️
+  `docker compose down`
+  → Stop all containers (keeps volumes/data unless `-v` used).
+
+- **`pnpm run restart`** 🔄
+  `docker compose restart api`
+  → Restart **only the API container** (useful after code/image updates).
+
+- **`pnpm run logs`** 📜
+  `docker compose logs -f api`
+  → Stream **live logs** from the API container.
+
+- **`pnpm run rebuild`** 🛠️
+  `docker compose down -v --rmi local --remove-orphans && docker compose build --no-cache && docker compose up -d`
+  → Full reset:
+  1. Stop & remove containers/volumes/images/orphans.
+  2. Build fresh images (no cache).
+  3. Start everything again.
+
+---
+
+### **Build & quality**
+
+- **`pnpm run build`** 🏗️
+  `turbo run build`
+  → Compile/build all workspaces (API, game, infra, shared packages).
+
+- **`pnpm run lint`** 🧹
+  `turbo run lint`
+  → Run lint checks across all packages.
+
+- **`pnpm run format`** ✨
+  `prettier --write "**/*.{ts,tsx,md}"`
+  → Auto-format TypeScript + Markdown files.
+
+- **`pnpm run check-types`** 🔍
+  `turbo run check-types`
+  → Run TypeScript type-checking across all packages (no emit).
 
 ### Command cheatsheet
 
-| Command              | What it does                                                                                                   | API runs where?                                             | DB lives where?                                   | Use when…                                                            |
-| -------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
-| `pnpm run dev`       | **Runs `predev` first**, which brings up Docker, then starts all local dev tasks **except** `api` and `infra`. | **Docker** → `http://localhost:4001`                        | Docker named volume `ft_transcendence_games-data` | Day-to-day dev: backend in Docker, frontend locally with hot reload. |
-| `pnpm run dev:local` | Stops Docker containers, then runs **everything locally** via Turborepo.                                       | **Local** → `http://localhost:4001`                         | Local file at `packages/infra/db/games.sqlite`    | You want to hack on the API itself without Docker in the loop.       |
-| `pnpm run dev:api`   | Starts only the **local API** (no Docker).                                                                     | **Local** → `http://localhost:4001`                         | Local file at `packages/infra/db/games.sqlite`    | Quick API-only work. (Make sure Docker API isn’t running.)           |
-| `pnpm run dev:game`  | Starts only the **frontend** (Vite).                                                                           | Whatever your frontend points to (set `VITE_API_BASE_URL`). | n/a                                               | You just need the UI while API is already in Docker.                 |
-| `pnpm run up`        | `docker compose up -d`                                                                                         | **Docker** → `http://localhost:4001`                        | `ft_transcendence_games-data`                     | Manually start containers. Idempotent.                               |
-| `pnpm run down`      | `docker compose down`                                                                                          | —                                                           | Volume persists (not deleted)                     | Stop containers but keep data.                                       |
-| `pnpm run logs`      | Tails Docker API logs.                                                                                         | Docker                                                      | `ft_transcendence_games-data`                     | See server output.                                                   |
-| `pnpm run rebuild`   | Rebuild Docker image (no cache) and restart.                                                                   | Docker                                                      | `ft_transcendence_games-data`                     | After Dockerfile or dependency changes.                              |
+| Command              | What it does                                                                                                    | API runs where?                                                    | DB lives where?                                 | Use when…                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `pnpm run dev`       | Runs all **dev tasks via Turborepo**. By default, API + DB come from Docker; frontend/game runs locally (Vite). | **Docker** → `http://localhost:4001`                               | Docker volume `ft_transcendence_games-data`     | Day-to-day dev: backend stable in Docker, frontend hot reload local.                              |
+| `pnpm run dev:local` | Stops Docker, then runs **everything locally** (API, DB, game) via Turbo.                                       | **Local** → `http://localhost:4001`                                | File at `packages/infra/db/games.sqlite`        | You’re hacking on API/DB internals and don’t want Docker overhead.                                |
+| `pnpm run dev:api`   | Starts **only the API locally** (with local SQLite).                                                            | **Local** → `http://localhost:4001` and `http://localhost:4001/ui` | File at `packages/infra/db/games.sqlite`        | Quick API-only work. (⚠️ Stop Docker API first to avoid port clash). /ui is for swagger andpoints |
+| `pnpm run dev:game`  | Starts **only the frontend** (Vite).                                                                            | Whatever `VITE_API_BASE_URL` points to                             | n/a                                             | You only need the UI while API is already running (Docker or local).                              |
+| `pnpm run up`        | `docker compose up -d` → start API + DB containers.                                                             | **Docker** → `http://localhost:4001`                               | Docker volume `ft_transcendence_games-data`     | Manually start containers; usually safe and idempotent.                                           |
+| `pnpm run down`      | `docker compose down` → stop containers.                                                                        | —                                                                  | Volume persists (data is safe)                  | Shut down Docker but keep your DB data intact.                                                    |
+| `pnpm run restart`   | `docker compose restart api` → restart only the API container.                                                  | **Docker** → `http://localhost:4001`                               | Docker volume `ft_transcendence_games-data`     | Fast way to reload API after config/code changes in the container.                                |
+| `pnpm run logs`      | `docker compose logs -f api` → follow API logs from Docker.                                                     | Docker                                                             | Docker volume `ft_transcendence_games-data`     | Inspect API runtime logs inside container.                                                        |
+| `pnpm run rebuild`   | Full reset: stop & remove containers/volumes/images, rebuild images w/o cache, then `up -d`.                    | **Docker** → `http://localhost:4001` (fresh)                       | New Docker volume `ft_transcendence_games-data` | After Dockerfile or dependency changes; guarantees clean rebuild.                                 |
 
 > FUTURE->Frontend → API URL (Vite example): create `apps/game/.env.local` with
 > `VITE_API_BASE_URL=http://localhost:4001`
