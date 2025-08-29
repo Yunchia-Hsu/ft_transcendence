@@ -81,6 +81,8 @@ const userRoutes = (app: OpenAPIHono) => {
           },
         },
       },
+      tags: ["users"],
+      summary: "register users",
     }),
     async (c) => {
       try {
@@ -170,6 +172,8 @@ const userRoutes = (app: OpenAPIHono) => {
           },
         },
       },
+      tags: ["users"],
+      summary: "user logs in"
     }),
     async (c) => {
       try {
@@ -210,6 +214,8 @@ const userRoutes = (app: OpenAPIHono) => {
         200: { description: "List of users" },
         404: { description: "No users found" },
       },
+      tags: ["users"],
+      summary: "retrieve all users's info"
     }),
     async (c) => {
       const users = await getAllUsers();
@@ -228,6 +234,8 @@ const userRoutes = (app: OpenAPIHono) => {
         200: { description: "User details" },
         404: { description: "User not found" },
       },
+      tags: ["users"],
+      summary: "retrieve get other user's info"
     }),
     async (c) => {
       const { userId } = c.req.param();
@@ -326,6 +334,8 @@ const userRoutes = (app: OpenAPIHono) => {
           },
         },
       },
+      tags: ["users"],
+      summary: "update me (user's) name and displayname"
     }),
     async (c) => {
       try {
@@ -440,6 +450,8 @@ const userRoutes = (app: OpenAPIHono) => {
           },
         },
       },
+      tags: ["users"],
+      summary: "delete me "
     }),
     async (c) => {
       try {
@@ -530,6 +542,8 @@ const userRoutes = (app: OpenAPIHono) => {
           },
         },
       },
+       tags: ["users"],
+      summary: "retrieve my info"
     }),
     async (c) => {
       try {
