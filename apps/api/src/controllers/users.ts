@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { JWT_SECRET } from '../config/jwt.js';
+import { Statement } from 'sqlite3';
 
 let nextId = 1;
 const generateUserId = (): string => {
@@ -121,13 +122,70 @@ export const getUserProfile = async (userid: string): Promise<DatabaseUser | nul
   return user;
 };
 
-export const updateUserProfile = async (userId: string, data: any) => {
-  const { username, email } = data;
-  return { userId, username, email };
+export const updateUserProfile = async (userId: string, data: { username: string; displayname: string | null }) => {
+  try {
+    const { username, displayname } = data;
+    
+    // Update user in database
+    await db
+      .updateTable("users")
+      .set({
+        username: username,
+        displayname: displayname,
+      })
+      .where("userid", "=", userId)
+      .execute();
+    
+    // Fetch updated user
+    const updatedUser = await db
+      .selectFrom("users")
+      .select(["userid", "username", "displayname"])
+      .where("userid", "=", userId)
+      .executeTakeFirst();
+    
+    if (!updatedUser) {
+      return null;
+    }
+    
+    return {
+      userId: updatedUser.userid,
+      username: updatedUser.username,
+      displayname: updatedUser.displayname,
+    };
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw new Error('Failed to update user profile');
+  }
 };
 
-export const deleteUserProfile = async (userId: string) => {
-  return { message: "User profile deleted successfully" };
+export const deleteUserProfile = async (userId: string): Promise<{ success: boolean; message: string } | null> => {
+  try {
+    // Check if user exists first
+    const existingUser = await db
+      .selectFrom("users")
+      .selectAll()
+      .where("userid", "=", userId)
+      .executeTakeFirst();
+    
+    if (!existingUser) {
+      return null;
+    }
+
+    // Delete user from database
+    await db
+      .deleteFrom("users")
+      .where("userid", "=", userId)
+      .execute();
+    
+    return {
+      success: true,
+      message: "User deleted successfully"
+    };
+    
+  } catch (error) {
+    console.error('Error deleting user from database:', error);
+    throw new Error('Failed to delete user');
+  }
 };
 
 export const getCurrentUser = async (userid: string) => {

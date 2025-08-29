@@ -13,10 +13,10 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters long"),
 });
 
+
 export const userProfileSchema = z.object({
-  userId: z.string(),
-  username: z.string(),
-  email: z.string(),
+  username: z.string().min(3, "Username must be at least 3 characters long"),
+  displayname: z.string().nullable(),
 });
 
 export const userMeResponseSchema = z.object({
@@ -29,3 +29,5 @@ export const userMeResponseSchema = z.object({
   avatar: z.string().nullable(),   
   status: z.string(),
 });
+
+
