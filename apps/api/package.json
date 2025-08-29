@@ -9,15 +9,16 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@pong/types": "workspace:*",
     "@hono/node-server": "^1.14.4",
     "@hono/swagger-ui": "^0.5.2",
     "@hono/zod-openapi": "^1.0.2",
+    "@pong/types": "workspace:*",
     "@typescript-eslint/parser": "^8.37.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "hono": "^4.8.1",
+    "jsonwebtoken": "^9",
     "kysely": "^0.28.5",
     "sqlite3": "^5.1.7",
     "zod": "^4.0.8"

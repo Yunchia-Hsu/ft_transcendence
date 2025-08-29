@@ -39,3 +39,5 @@ yarn-error.log*
 
 # Local SQLite database
 packages/infra/db/*.sqlite
+packages/infra/db/*.sqlite-wal
+packages/infra/db/*.sqlite-shm
