@@ -5,6 +5,9 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { JWT_SECRET } from '../config/jwt.js';
 import { Statement } from 'sqlite3';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
+
 
 let nextId = 1;
 const generateUserId = (): string => {
@@ -66,17 +69,33 @@ export const loginUser = async (data: { username: string; password: string }) =>
     throw new Error('Invalid credentials');
   }
   
- let jwtsecret = 'secret';
-const token = jwt.sign(
-  { userId: user.userid, username: user.username, email: user.email },
-  jwtsecret,
-  { algorithm: 'HS256', expiresIn: '48h' }
-);
-  console.log('token from login:', token);
-  return { 
-    token, 
-    userId: user.userid 
+ 
+// 檢查是否啟用 2FA
+if (user.twoFactorEnabled) {
+  // 生成臨時 token
+  let jwtsecret = 'secret';
+  
+  const tempToken = jwt.sign(
+    { userId: user.userid, temp: true },
+    jwtsecret ,
+    { expiresIn: '10m' }
+  );
+  
+  return {
+    requireTwoFactor: true,
+    tempToken: tempToken
   };
+} else {
+  // 直接登入
+  let jwtsecret = 'secret';
+  const token = jwt.sign(
+    { userId: user.userid, username: user.username },
+    jwtsecret ,
+    { expiresIn: '36h' }
+  );
+  
+  return { token, userId: user.userid };
+}
 };
   
 
@@ -209,5 +228,124 @@ export const getCurrentUser = async (userid: string) => {
   } catch (error) {
     console.error('Error getting current user:', error);
     throw new Error('Failed to get user information');
+  }
+};
+
+
+
+// 設定 2FA
+export const setup2FA = async (userId: string) => {
+  try {
+    const user = await getUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // 生成密鑰
+    const secret = speakeasy.generateSecret({
+      name: `Pong Game (${user.username})`,
+      issuer: 'Best Pong Game'
+    });
+
+    // 儲存密鑰到資料庫（但還未啟用）
+    await db
+      .updateTable("users")
+      .set({
+        twoFactorSecret: secret.base32,
+        twoFactorEnabled: 0,
+      })
+      .where("userid", "=", userId)
+      .execute();
+
+      // ✅ otpauth_url 在型別上可能是 string | undefined，保險處理
+    if (!secret.otpauth_url) {
+      throw new Error('Failed to create otpauth url');
+    }
+
+    // 生成 QR 碼
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
+
+    return {
+      qrCode: qrCodeUrl,
+      manualEntryKey: secret.base32
+    };
+  } catch (error) {
+    console.error('Error setting up 2FA:', error);
+    throw new Error('Failed to setup 2FA');
+  }
+};
+
+// 啟用 2FA
+export const activate2FA = async (userId: string, code: string) => {
+  try {
+    const user = await getUserById(userId);
+    if (!user || !user.twoFactorSecret) {
+      throw new Error('2FA setup not found');
+    }
+
+    // 驗證驗證碼
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token: code,
+      window: 2
+    });
+
+    if (!verified) {
+      throw new Error('Invalid 2FA code');
+    }
+
+    // 啟用 2FA
+    await db
+      .updateTable("users")
+      .set({ twoFactorEnabled: 1 })
+      .where("userid", "=", userId)
+      .execute();
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error activating 2FA:', error);
+    throw error;
+  }
+};
+
+// 驗證 2FA 碼
+export const verify2FA = async (tempToken: string, code: string) => {
+  try {
+    // 解析臨時 token
+    const decoded = jwt.verify(tempToken, process.env.JWT_SECRET!) as any;
+    const user = await getUserById(decoded.userId);
+
+    if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new Error('2FA not enabled for this user');
+    }
+
+    // 驗證 2FA 碼
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token: code,
+      window: 2
+    });
+
+    if (!verified) {
+      throw new Error('Invalid 2FA code');
+    }
+
+    // 生成正式 token
+    const finalToken = jwt.sign(
+      { userId: user.userid, username: user.username },
+      process.env.JWT_SECRET!,
+      { expiresIn: '24h' }
+    );
+
+    return {
+      success: true,
+      token: finalToken,
+      userId: user.userid
+    };
+  } catch (error) {
+    console.error('Error verifying 2FA:', error);
+    throw error;
   }
 };

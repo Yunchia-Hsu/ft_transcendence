@@ -57,10 +57,10 @@ export interface DatabaseSchema {
   matchmaking_queue: MatchmakingQueue;
   tournaments: Tournament;
   tournament_participants: TournamentParticipant;
-  users: DatabaseUser; // yunchia added 
+  users: DatabaseUser; 
 }
 
-export interface DatabaseUser {    //yunchia added 25.08
+export interface DatabaseUser {    
   userid: string;
   username: string;
   displayname: string | null;
@@ -70,6 +70,8 @@ export interface DatabaseUser {    //yunchia added 25.08
   createdAt: string;
   avatar: string | null;
   status: string;
+  twoFactorSecret: string | null;
+  twoFactorEnabled: number; //0 false 1 true
 }
 
 
@@ -164,6 +166,8 @@ export const initDB = async () => {
     .addColumn("createdAt", "text", (col) => col.notNull())
     .addColumn("avatar", "text")
     .addColumn("status", "text", (col) => col.notNull().defaultTo("offline"))
+    .addColumn("twoFactorSecret", "text")
+    .addColumn("twoFactorEnabled", "integer", (col) => col.notNull().defaultTo(0))
     .execute();
   
     console.log("DB init: ensured tables games, matchmaking_queue, users");

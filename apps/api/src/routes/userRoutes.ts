@@ -4,6 +4,9 @@ import {
   loginSchema,
   userProfileSchema,
   userMeResponseSchema,
+  setup2faSchema,
+  activate2faSchema,
+  verify2faSchema,
 } from "../schemas/userSchemas.js";
 
 import {
@@ -13,7 +16,10 @@ import {
   getAllUsers,
   updateUserProfile,
   deleteUserProfile,
-  getCurrentUser,  
+  getCurrentUser,
+  setup2FA,
+  activate2FA,
+  verify2FA,  
 } from "../controllers/users.js";
 
 import { verifyToken } from "../utils/auth.js"; // for get me 
@@ -235,7 +241,7 @@ const userRoutes = (app: OpenAPIHono) => {
         404: { description: "User not found" },
       },
       tags: ["users"],
-      summary: "retrieve get other user's info"
+      summary: "retrieve other user's info"
     }),
     async (c) => {
       const { userId } = c.req.param();
@@ -579,7 +585,7 @@ const userRoutes = (app: OpenAPIHono) => {
       }
     }
   );
-};
+
 
 /*
 use command to test me router
@@ -588,7 +594,169 @@ use command to test me router
 
 */
 
+// 2fa
+// POST api/auth/setup-2fa // 設定2FA (生成QR碼) 
+// POST api/auth/activate-2fa // 啟用2FA (驗證首次設定)
+//  POST api/auth/verify-2fa // 登入時驗證2FA碼
 
 
+
+// // user state 
+// GET api/users/online // 取得在線用戶列表 
+// PUT api/users/:userId/status // 更新用戶在線狀態
+
+// 設定 2FA
+app.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/auth/setup-2fa",
+    request: {
+      headers: z.object({
+        authorization: z.string(),
+      }),
+    // method: 'post',
+    // path: '/api/auth/setup-2fa',
+    // security: [{ BearerAuth: [] }],   // ← 這行很重要
+    },
+    responses: {
+      200: {
+        description: "2FA setup successful",
+        content: {
+          "application/json": {
+            schema: z.object({
+              qrCode: z.string(),
+              manualEntryKey: z.string(),
+            }),
+          },
+        },
+      },
+      401: { description: "Unauthorized" },
+    },
+  }),
+  async (c) => {
+    try {
+      const authHeader = c.req.header("authorization");
+      if (!authHeader) {
+        return c.json({ error: "Authorization required" }, 401);
+      }
+
+      const tokenVerification = verifyToken(authHeader);
+      if (!tokenVerification.valid) {
+        return c.json({ error: tokenVerification.error }, 401);
+      }
+
+      const result = await setup2FA(tokenVerification.userId!);
+      return c.json(result, 200);
+    } catch (error) {
+      console.error('Setup 2FA error:', error);
+      return c.json({ error: "Failed to setup 2FA" }, 500);
+    }
+  }
+);
+
+// 啟用 2FA
+app.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/auth/activate-2fa",
+    request: {
+      headers: z.object({
+        authorization: z.string(),
+      }),
+      body: {
+        content: {
+          "application/json": {
+            schema: activate2faSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      200: { description: "2FA activated" },
+      400: { description: "Invalid code" },
+      401: { description: "Unauthorized" },
+    },
+  }),
+  async (c) => {
+    try {
+      const authHeader = c.req.header("authorization");
+      if (!authHeader) {
+        return c.json({ error: "Authorization required" }, 401);
+      }
+
+      const tokenVerification = verifyToken(authHeader);
+      if (!tokenVerification.valid) {
+        return c.json({ error: tokenVerification.error }, 401);
+      }
+
+      const body = await c.req.json();
+      const result = activate2faSchema.safeParse(body);
+      if (!result.success) {
+        return c.json({ error: result.error.issues }, 400);
+      }
+
+      await activate2FA(tokenVerification.userId!, result.data.code);
+      return c.json({ success: true }, 200);
+    } catch (error) {
+      console.error('Activate 2FA error:', error);
+      if (error instanceof Error && error.message.includes('Invalid')) {
+        return c.json({ error: "Invalid 2FA code" }, 400);
+      }
+      return c.json({ error: "Failed to activate 2FA" }, 500);
+    }
+  }
+);
+
+// 驗證 2FA
+app.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/auth/verify-2fa",
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: verify2faSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "2FA verified",
+        content: {
+          "application/json": {
+            schema: z.object({
+              token: z.string(),
+              userId: z.string(),
+            }),
+          },
+        },
+      },
+      400: { description: "Invalid code" },
+    },
+  }),
+  async (c) => {
+    try {
+      const body = await c.req.json();
+      const result = verify2faSchema.safeParse(body);
+      if (!result.success) {
+        return c.json({ error: result.error.issues }, 400);
+      }
+
+      const verificationResult = await verify2FA(result.data.tempToken, result.data.code);
+      return c.json(verificationResult, 200);
+    } catch (error) {
+      console.error('Verify 2FA error:', error);
+      if (error instanceof Error && error.message.includes('Invalid')) {
+        return c.json({ error: "Invalid 2FA code" }, 400);
+      }
+      return c.json({ error: "2FA verification failed" }, 500);
+    }
+  }
+);
+
+
+};
 
 export default userRoutes;

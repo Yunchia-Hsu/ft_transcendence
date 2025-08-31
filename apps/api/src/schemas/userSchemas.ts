@@ -31,3 +31,14 @@ export const userMeResponseSchema = z.object({
 });
 
 
+export const setup2faSchema = z.object({
+});
+
+export const activate2faSchema = z.object({
+  code: z.string().length(6, "2fa must contatin 6 digits"),
+});
+
+export const verify2faSchema = z.object({
+  code: z.string().length(6, "2fa must contatin 6 digits"),
+  tempToken: z.string().min(1, "Temp token is required"),
+})
