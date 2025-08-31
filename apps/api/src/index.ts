@@ -8,8 +8,8 @@ import tournamentRoutes from "./routes/tournamentRoutes.js";
 import tournamentParticipantsRoutes from "./routes/tournaments.participants.js";
 import tournamentLifecycleRoutes from "./routes/tournaments.lifecycle.js";
 import { initDB } from "infra/db/index.js";
-import { config } from "dotenv";
-
+import { config } from 'dotenv';
+import 'dotenv/config'
 const app = new OpenAPIHono();
 await initDB();
 userRoutes(app);

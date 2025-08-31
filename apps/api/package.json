@@ -20,6 +20,8 @@
     "hono": "^4.8.1",
     "jsonwebtoken": "^9",
     "kysely": "^0.28.5",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0",
     "sqlite3": "^5.1.7",
     "zod": "^4.0.8"
   },

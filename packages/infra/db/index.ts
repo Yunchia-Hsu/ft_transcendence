@@ -68,17 +68,7 @@ export interface MatchmakingQueue {
   queued_at: string; // ISO
 }
 
-export interface DatabaseUser {
-  userid: string;
-  username: string;
-  displayname: string | null;
-  email: string;
-  password: string;
-  isEmailVerified: boolean; // coerced to boolean in helpers
-  createdAt: string;
-  avatar: string | null;
-  status: string;
-}
+
 
 export interface DatabaseSchema {
   games: Game;
@@ -89,7 +79,31 @@ export interface DatabaseSchema {
   users: DatabaseUser;
 }
 
-/* ---------- DB factory & singleton ---------- */
+
+export interface DatabaseUser {    
+  userid: string;
+  username: string;
+  displayname: string | null;
+  email: string;
+  password: string;
+  isEmailVerified: boolean;
+  createdAt: string;
+  avatar: string | null;
+  status: string;
+  twoFactorSecret: string | null;
+  twoFactorEnabled: number; //0 false 1 true
+}
+
+
+// ----- Create DB function -----
+// export const createDb = (): Kysely<DatabaseSchema> => {
+//   const db = new Kysely<DatabaseSchema>({
+//     dialect: new SqliteDialect({
+//       database: new Database(dbPath),
+//     }),
+//   });
+//   return db;
+// };
 export const createDb = (): Kysely<DatabaseSchema> => {
   const sqlite = new Database(dbPath);
   sqlite.pragma("journal_mode = WAL");
@@ -173,6 +187,8 @@ export const initDB = async (): Promise<void> => {
     .addColumn("createdAt", "text", (col) => col.notNull())
     .addColumn("avatar", "text")
     .addColumn("status", "text", (col) => col.notNull().defaultTo("offline"))
+    .addColumn("twoFactorSecret", "text")
+    .addColumn("twoFactorEnabled", "integer", (col) => col.notNull().defaultTo(0))
     .execute();
 
   // Helpful indexes
