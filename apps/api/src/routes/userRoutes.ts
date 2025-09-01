@@ -20,6 +20,8 @@ import {
   setup2FA,
   activate2FA,
   verify2FA,  
+  getOnlineUsers,
+  updateUserStatus,
 } from "../controllers/users.js";
 
 import { verifyToken } from "../utils/auth.js"; // for get me 
@@ -602,8 +604,118 @@ use command to test me router
 
 
 // // user state 
-// GET api/users/online // 取得在線用戶列表 
-// PUT api/users/:userId/status // 更新用戶在線狀態
+
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/users/onlineusers",
+      responses: {
+        200: {
+          description: "check Online users",
+          content: {
+            "application/json": {
+              schema: z.array(
+                z.object({
+                  userid: z.string(),
+                  username: z.string(),
+                  displayname: z.string().nullable(),
+                  avatar: z.string().nullable(),
+                  status: z.enum(["online", "offline"]),
+                })
+              ),
+            },
+          },
+        },
+      },
+      tags: ["users status"],
+      summary: "get online users list",
+    }),
+    async (c) => {
+      const usersRaw = await getOnlineUsers();
+      const users = usersRaw.map((u) => ({
+        userid: u.userid,
+        username: u.username,
+        displayname: u.displayname ?? null,
+        avatar: u.avatar ?? null,
+        status: "online" as const,
+      }));
+      return c.json(users, 200);
+    }
+  );
+
+  /* test update status
+  curl -X PUT http://localhost:4001/api/users/<id>/status \
+  -H "Authorization: Bearer ey..." \
+  -H "Content-Type: application/json" \
+  -d '{"status":"online"}'
+  */
+  app.openapi(
+    createRoute({
+      method: "put",
+      //path: "/api/users/:userId/status",
+      //path: "/api/users/me/updatestatus",
+      path: "/api/users/me/status",
+      request: {
+        headers: z.object({
+          authorization: z.string().describe("Bearer token for authentication"),
+        }),
+        body: {
+          content: {
+            "application/json": {schema: z.object({ status: z.enum(["online", "offline"]) }),},
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "User status updated",
+          content: {
+            "application/json": {
+              schema: z.object({ userId: z.string(), status: z.enum(["online", "offline"]) }),
+            },
+          },
+        },
+        401: { description: "Unauthorized" },
+        403: { description: "Forbidden - Cannot update other users" },
+      },
+      tags: ["users status"],
+      summary: "update user's online status",
+    }),
+    async (c) => {
+      try {
+        const authHeader = c.req.header("authorization");
+        if (!authHeader) {
+          return c.json({ error: "Authorization header is required" }, 401);
+        }
+
+        const tokenVerification = verifyToken(authHeader);
+        if (!tokenVerification.valid) {
+          return c.json({ error: tokenVerification.error }, 401);
+        }
+
+        const userId = tokenVerification.userId;
+        if (tokenVerification.userId !== userId) {
+          return c.json({ error: "You can only update your own status" }, 403);
+        }
+
+        const body = await c.req.json();
+        const parsed = z.object({ status: z.enum(["online", "offline"]) }).safeParse(body);
+        if (!parsed.success) {
+          return c.json({ error: parsed.error.issues }, 400);
+        }
+        console.log('userId: ', userId);
+        const result = await updateUserStatus(userId, parsed.data.status);
+        return c.json(result, 200);
+      } catch (error) {
+        console.error("Error updating status:", error);
+        return c.json({ error: "Internal server error" }, 500);
+      }
+    }
+  );
+
+// 2fa
+// POST api/auth/setup-2fa // 設定2FA (生成QR碼) 
+// POST api/auth/activate-2fa // 啟用2FA (驗證首次設定)
+//  POST api/auth/verify-2fa // 登入時驗證2FA碼
 
 // 設定 2FA
 app.openapi(
@@ -632,6 +744,8 @@ app.openapi(
       },
       401: { description: "Unauthorized" },
     },
+    tags: ["2FA"],
+    summary: "setup 2FA",
   }),
   async (c) => {
     try {
@@ -676,6 +790,8 @@ app.openapi(
       400: { description: "Invalid code" },
       401: { description: "Unauthorized" },
     },
+    tags: ["2FA"],
+    summary: "activate 2FA",
   }),
   async (c) => {
     try {
@@ -735,6 +851,8 @@ app.openapi(
       },
       400: { description: "Invalid code" },
     },
+    tags: ["2FA"],
+    summary: "verify 2FA",
   }),
   async (c) => {
     try {

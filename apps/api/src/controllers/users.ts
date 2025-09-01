@@ -349,3 +349,26 @@ export const verify2FA = async (tempToken: string, code: string) => {
     throw error;
   }
 };
+
+// ----- Online users & status -----
+export const getOnlineUsers = async () => {
+  const users = await db
+    .selectFrom("users")
+    .select(["userid", "username", "displayname", "avatar", "status"])
+    .where("status", "=", "online")
+    .execute();
+  return users;
+};
+
+export const updateUserStatus = async (
+  userId: string,
+  status: "online" | "offline"
+) => {
+  await db
+    .updateTable("users")
+    .set({ status })
+    .where("userid", "=", userId)
+    .execute();
+
+  return { userId, status } as const;
+};
