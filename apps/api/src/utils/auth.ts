@@ -65,8 +65,6 @@ export function verifyToken(authHeader: string): TokenVerificationResult {
 
     const decoded = jwt.verify(token, 'secret') as { userId: string };//JWT_SECRET
     console.log("[DELETE /users/:userId] header =", token);
-   // console.log("[DELETE /users/:userId] tokenUserId =", tokenVerification?.userId);
-    //console.log("[DELETE /users/:userId] param userId =", userId);
 
     return {
       valid: true,
@@ -76,7 +74,7 @@ export function verifyToken(authHeader: string): TokenVerificationResult {
   } catch (err) {
     return {
       valid: false,
-      userId: '',
+      userId: 'no pass verufyToen so no ID',
       error: 'Invalid token formatttt',
     };
   }

@@ -249,6 +249,8 @@ export const getUserById = async (userid: string): Promise<DatabaseUser | null> 
     createdAt: user.createdAt,
     avatar: user.avatar,
     status: user.status,
+    twoFactorSecret: user.twoFactorSecret,
+    twoFactorEnabled: user.twoFactorEnabled,
   };
 };
 

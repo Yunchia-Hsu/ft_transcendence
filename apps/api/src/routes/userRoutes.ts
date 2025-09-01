@@ -717,7 +717,7 @@ use command to test me router
 // POST api/auth/activate-2fa // 啟用2FA (驗證首次設定)
 //  POST api/auth/verify-2fa // 登入時驗證2FA碼
 
-// 設定 2FA
+// setup 2FA  generate qrcode and bind key on google authenticater
 app.openapi(
   createRoute({
     method: "post",
@@ -726,9 +726,7 @@ app.openapi(
       headers: z.object({
         authorization: z.string(),
       }),
-    // method: 'post',
-    // path: '/api/auth/setup-2fa',
-    // security: [{ BearerAuth: [] }],   // ← 這行很重要
+    
     },
     responses: {
       200: {
@@ -754,7 +752,7 @@ app.openapi(
         return c.json({ error: "Authorization required" }, 401);
       }
 
-      const tokenVerification = verifyToken(authHeader);
+      const tokenVerification = verifyToken(authHeader);// check jwt token
       if (!tokenVerification.valid) {
         return c.json({ error: tokenVerification.error }, 401);
       }
@@ -768,7 +766,7 @@ app.openapi(
   }
 );
 
-// 啟用 2FA
+// activate 2FA
 app.openapi(
   createRoute({
     method: "post",
