@@ -278,6 +278,22 @@ export const getUserById = async (
     .selectAll()
     .where("userid", "=", userid)
     .executeTakeFirst();
+
+  if (!user) return null;
+
+  return {
+    userid: user.userid,
+    username: user.username,
+    displayname: user.displayname,
+    email: user.email,
+    password: user.password,
+    isEmailVerified: user.isEmailVerified,
+    createdAt: user.createdAt,
+    avatar: user.avatar,
+    status: user.status,
+    twoFactorSecret: user.twoFactorSecret,
+    twoFactorEnabled: user.twoFactorEnabled,
+  };
   return row ? normalizeUser(row) : null;
 };
 

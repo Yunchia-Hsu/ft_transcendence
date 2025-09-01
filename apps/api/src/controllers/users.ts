@@ -257,7 +257,7 @@ export const setup2FA = async (userId: string) => {
       .where("userid", "=", userId)
       .execute();
 
-      // ✅ otpauth_url 在型別上可能是 string | undefined，保險處理
+    
     if (!secret.otpauth_url) {
       throw new Error('Failed to create otpauth url');
     }
@@ -279,23 +279,23 @@ export const setup2FA = async (userId: string) => {
 export const activate2FA = async (userId: string, code: string) => {
   try {
     const user = await getUserById(userId);
+    console.log('user: ', user);
     if (!user || !user.twoFactorSecret) {
       throw new Error('2FA setup not found');
     }
 
-    // 驗證驗證碼
     const verified = speakeasy.totp.verify({
       secret: user.twoFactorSecret,
       encoding: 'base32',
       token: code,
-      window: 2
+      window: 1
     });
 
     if (!verified) {
       throw new Error('Invalid 2FA code');
     }
 
-    // 啟用 2FA
+    // activate 2FA
     await db
       .updateTable("users")
       .set({ twoFactorEnabled: 1 })
