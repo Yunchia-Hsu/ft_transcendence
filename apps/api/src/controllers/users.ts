@@ -73,11 +73,9 @@ export const loginUser = async (data: { username: string; password: string }) =>
 // 檢查是否啟用 2FA
 if (user.twoFactorEnabled) {
   // 生成臨時 token
-  let jwtsecret = 'secret';
-  
   const tempToken = jwt.sign(
     { userId: user.userid, temp: true },
-    jwtsecret ,
+    JWT_SECRET,
     { expiresIn: '10m' }
   );
   
@@ -87,10 +85,9 @@ if (user.twoFactorEnabled) {
   };
 } else {
   // 直接登入
-  let jwtsecret = 'secret';
   const token = jwt.sign(
     { userId: user.userid, username: user.username },
-    jwtsecret ,
+    JWT_SECRET,
     { expiresIn: '36h' }
   );
   
@@ -309,11 +306,10 @@ export const activate2FA = async (userId: string, code: string) => {
   }
 };
 
-// 驗證 2FA 碼
 export const verify2FA = async (tempToken: string, code: string) => {
   try {
     // 解析臨時 token
-    const decoded = jwt.verify(tempToken, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
     const user = await getUserById(decoded.userId);
 
     if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
@@ -332,10 +328,10 @@ export const verify2FA = async (tempToken: string, code: string) => {
       throw new Error('Invalid 2FA code');
     }
 
-    // 生成正式 token
+    // generate final token
     const finalToken = jwt.sign(
       { userId: user.userid, username: user.username },
-      process.env.JWT_SECRET!,
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
 

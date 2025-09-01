@@ -766,6 +766,14 @@ app.openapi(
   }
 );
 
+
+/*
+ curl -X POST http://localhost:4001/api/auth/activate-2fa \
+  -H "Authorization: Bearer ey..." \
+  -H "Content-Type: application/json" \
+  -d "{\"code\":\"......\"}"
+
+*/
 // activate 2FA
 app.openapi(
   createRoute({
@@ -821,7 +829,7 @@ app.openapi(
   }
 );
 
-// 驗證 2FA
+// verify 2FA
 app.openapi(
   createRoute({
     method: "post",
@@ -847,7 +855,7 @@ app.openapi(
           },
         },
       },
-      400: { description: "Invalid code" },
+      400: { description: "Invalid 2fa code" },
     },
     tags: ["2FA"],
     summary: "verify 2FA",
