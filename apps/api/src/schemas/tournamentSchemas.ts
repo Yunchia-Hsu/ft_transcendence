@@ -1,14 +1,16 @@
 import { z } from "@hono/zod-openapi";
 import { TournamentTypeEnum, TournamentStatusEnum } from "@pong/types";
 
-// Body for POST /api/tournaments
+const tournamentTypeCoerced = z.preprocess((v) => {
+  if (typeof v === "string") return v.toLowerCase();
+  return v;
+}, z.nativeEnum(TournamentTypeEnum));
+
 export const tournamentCreateSchema = z.object({
   name: z.string().min(1).openapi({ example: "Weekend Cup" }),
-  type: z
-    .nativeEnum(TournamentTypeEnum)
-    .openapi({ example: TournamentTypeEnum.SINGLE_ELIM }),
+  // if your enum value is "single_elim", keep the example consistent:
+  type: tournamentTypeCoerced.openapi({ example: "single_elim" }),
   size: z.number().int().positive().openapi({ example: 8 }),
-  ownerId: z.string().min(1),
 });
 
 // Response DTO
@@ -57,4 +59,10 @@ export const errorSchema = z.object({
   ok: z.literal(false),
   code: z.string().openapi({ example: "NOT_FOUND" }),
   message: z.string().optional(),
+});
+
+// Body for POST /api/tournaments/:tournamentId/participants
+// Optional nickname; if missing we derive from user.displayname || username
+export const tournamentJoinBodySchema = z.object({
+  nickname: z.string().min(1).max(50).optional(),
 });

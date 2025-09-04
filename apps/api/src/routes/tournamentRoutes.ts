@@ -1,4 +1,4 @@
-import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createDb } from "infra/db/index.js";
 import {
   tournamentCreateSchema,
@@ -14,16 +14,20 @@ import {
   getTournamentDetail,
   deleteTournament,
 } from "../controllers/tournaments.js";
+import { verifyToken } from "../utils/auth.js"; // <-- use your existing verifier
 
 const tournamentRoutes = (app: OpenAPIHono) => {
   const db = createDb();
 
-  // POST /api/tournaments — create
+  // POST /api/tournaments — create (JWT)
   app.openapi(
     createRoute({
       method: "post",
       path: "/api/tournaments",
       request: {
+        headers: z.object({
+          authorization: z.string().describe("Bearer <JWT>"),
+        }),
         body: {
           required: true,
           content: { "application/json": { schema: tournamentCreateSchema } },
@@ -35,6 +39,10 @@ const tournamentRoutes = (app: OpenAPIHono) => {
           content: { "application/json": { schema: tournamentItemSchema } },
         },
         400: { description: "Invalid body" },
+        401: {
+          description: "Unauthorized (missing/invalid JWT)",
+          content: { "application/json": { schema: errorSchema } },
+        },
         500: { description: "Server error" },
       },
       tags: ["tournaments"],
@@ -51,10 +59,20 @@ const tournamentRoutes = (app: OpenAPIHono) => {
             400
           );
         }
-        const ownerId = c.req.header("x-user-id");
-        if (!ownerId) {
+
+        // Read & verify JWT
+        const authHeader =
+          c.req.header("authorization") ?? c.req.header("Authorization");
+        if (!authHeader) {
           return c.json({ ok: false, code: "UNAUTHORIZED" } as const, 401);
         }
+
+        const token = verifyToken(authHeader);
+        if (!token.valid || !token.userId) {
+          return c.json({ ok: false, code: "UNAUTHORIZED" } as const, 401);
+        }
+
+        const ownerId = token.userId; // <-- owner from JWT
 
         const created = await createTournament(db, parsed.data, ownerId);
         return c.json(created, 201);

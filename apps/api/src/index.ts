@@ -5,8 +5,9 @@ import userRoutes from "./routes/userRoutes.js";
 import gameRoutes from "./routes/gameRoutes.js";
 import matchmakingRoutes from "./routes/matchmakingRoutes.js";
 import tournamentRoutes from "./routes/tournamentRoutes.js";
+import tournamentParticipantsRoutes from "./routes/tournaments.participants.js";
 import { initDB } from "infra/db/index.js";
-import { config } from 'dotenv';
+import { config } from "dotenv";
 
 const app = new OpenAPIHono();
 await initDB();
@@ -14,6 +15,7 @@ userRoutes(app);
 gameRoutes(app);
 matchmakingRoutes(app);
 tournamentRoutes(app);
+tournamentParticipantsRoutes(app);
 
 // Swagger UI: http://localhost:4001/ui
 app.get(
