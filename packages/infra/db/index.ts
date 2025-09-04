@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-
+export type FriendStatus = 'pending' | 'accepted' | 'declined';
 // ----- DB Paths -----
 // Use import.meta.url to get the current file path in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +58,7 @@ export interface DatabaseSchema {
   tournaments: Tournament;
   tournament_participants: TournamentParticipant;
   users: DatabaseUser; 
+  //friends: Friends;
 }
 
 export interface DatabaseUser {    
@@ -74,6 +75,13 @@ export interface DatabaseUser {
   twoFactorEnabled: number; //0 false 1 true
 }
 
+export interface Friends{
+  friendid: string;
+  user1: string;
+  user2: string;
+  friendstatus: FriendStatus;
+  requested_by: string;
+}
 
 // ----- Create DB function -----
 // export const createDb = (): Kysely<DatabaseSchema> => {
@@ -170,6 +178,15 @@ export const initDB = async () => {
     .addColumn("twoFactorEnabled", "integer", (col) => col.notNull().defaultTo(0))
     .execute();
   
+  await db.schema
+    .createTable("friends")
+    .ifNotExists()
+    .addColumn("friendid", "text", (col) => col.primaryKey())
+    .addColumn("user1", "text", (col) => col.notNull())
+    .addColumn("user2", "text", (col) => col.notNull())
+    .addColumn("friendstatus", "text",(col) => col.notNull().defaultTo("pending"))
+    .addColumn("requested_by", "text") 
+    .execute();
     console.log("DB init: ensured tables games, matchmaking_queue, users");
 };
 
@@ -206,7 +223,6 @@ export const saveUserToDatabase = async (user: DatabaseUser): Promise<void> => {
     .execute();
 };
 
-// 根據用戶名取得用戶
 export const getUserByUsername = async (username: string): Promise<DatabaseUser | null> => {
   const user = await db
     .selectFrom("users")
@@ -229,7 +245,6 @@ export const getUserByUsername = async (username: string): Promise<DatabaseUser 
   };
 };
 
-// 根據 userid 取得用戶
 export const getUserById = async (userid: string): Promise<DatabaseUser | null> => {
   const user = await db
     .selectFrom("users")

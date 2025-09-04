@@ -7,6 +7,7 @@ import { JWT_SECRET } from '../config/jwt.js';
 import { Statement } from 'sqlite3';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
+import type { Friends } from "../../../../packages/infra/db/index.js";
 
 
 let nextId = 1;
@@ -308,7 +309,7 @@ export const activate2FA = async (userId: string, code: string) => {
 
 export const verify2FA = async (tempToken: string, code: string) => {
   try {
-    // 解析臨時 token
+    // decode temp token
     const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
     const user = await getUserById(decoded.userId);
 
@@ -316,7 +317,7 @@ export const verify2FA = async (tempToken: string, code: string) => {
       throw new Error('2FA not enabled for this user');
     }
 
-    // 驗證 2FA 碼
+    // verify 2FA 
     const verified = speakeasy.totp.verify({
       secret: user.twoFactorSecret,
       encoding: 'base32',
@@ -368,3 +369,130 @@ export const updateUserStatus = async (
 
   return { userId, status } as const;
 };
+
+export const getFriends = async (userId: string) => {
+  const friends = await db
+    .selectFrom("friends")
+    .select(["friendid", "user1", "user2"])
+    .where("user1", "=", userId)
+    .or("user2", "=", userId)
+    .execute();
+  return friends;
+};
+
+//check DB → 判斷 → 插入 → 再把結果拿回來。
+export const createFriendRequest = async (senderId: string, receiverId: string):Promise<Friends> =>{
+  // check if user sends request to hiself
+  if (senderId === receiverId){
+    throw new Error ("you cannot send the request to yourself");
+  }
+
+try{
+ //pair
+ const [user1, user2] = senderId < receiverId? [senderId, receiverId] : [receiverId, senderId]; 
+
+//check if exist
+  const existing = await db
+  .selectFrom("friends")
+  .selectAll()
+  .where("user1", "=", user1) 
+  .where("user2", "=", user2) 
+  .executeTakeFirst()
+
+ if (existing){
+    if (existing.friendstatus === "pending"){
+      throw new Error ("friend request already sent"); 
+    }
+    if (existing.friendstatus === "accepted"){
+      throw new Error (" you are friends now"); 
+    }
+    if (existing.friendstatus === "declined"){
+      throw new Error ("you got declined, sorry."); 
+    }
+  }
+  //create new friendid 
+  const friendid = crypto.randomUUID();
+  const newfriend  = await db
+    .insertInto("friends")
+    .values({
+      friendid,
+      user1,
+      user2,
+      friendstatus: "pending",
+      requested_by: senderId, 
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  
+  //return newfriend;
+  return {
+    friendid: newfriend.friendid,
+    user1: newfriend.user1,
+    user2: newfriend.user2,
+    friendstatus: newfriend.friendstatus,
+    requested_by: newfriend.requested_by,
+  };
+}catch(err:any)
+{
+  throw new Error ("friend pair alreay exists");
+};
+}
+
+export const acceptFriendRequest = async(userId: string, requestId: string):Promise<Friend> => {
+ 
+  
+  const existing = await db
+  .selectFrom("friends")
+  .selectAll()
+  .where("friendid","=", requestId)
+  .executeTakeFirst();
+  if (!existing) {
+    throw new Error("request not found");
+  }
+  if (existing.friendstatus !== "pending")
+  {
+    throw new Error("the friend request is not pending");
+  }
+  if(existing.requested_by === userId) {
+    throw new Error("you cannot accept your own friend request");
+  } 
+  const updated = await db
+    .updateTable("friends")
+    .set({ friendstatus: "accepted" })
+    .where("friendid", "=", requestId)
+    .returningAll()
+    .executeTakeFirstOrThrow();
+
+  return updated;
+
+}
+
+
+export const RejectedFriendRequest = async(userId: string, requestId: string):Promise<Friend> => {
+ 
+  
+  const existing = await db
+  .selectFrom("friends")
+  .selectAll()
+  .where("friendid","=", requestId)
+  .executeTakeFirst();
+  if (!existing) {
+    throw new Error("request not found");
+  }
+  if (existing.friendstatus !== "pending")
+  {
+    throw new Error("the friend request is not pending");
+  }
+  if(existing.requested_by === userId) {
+    throw new Error("you cannot accept your own friend request");
+  } 
+  const updated = await db
+    .updateTable("friends")
+    .set({ friendstatus: "declined" })
+    .where("friendid", "=", requestId)
+    .returningAll()
+    .executeTakeFirstOrThrow();
+
+  return updated;
+
+}
