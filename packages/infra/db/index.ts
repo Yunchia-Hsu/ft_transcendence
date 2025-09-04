@@ -3,8 +3,9 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-
-/* ---------- Paths ---------- */
+export type FriendStatus = 'pending' | 'accepted' | 'declined';
+// ----- DB Paths -----
+// Use import.meta.url to get the current file path in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -94,6 +95,13 @@ export interface DatabaseUser {
   twoFactorEnabled: number; //0 false 1 true
 }
 
+export interface Friends{
+  friendid: string;
+  user1: string;
+  user2: string;
+  friendstatus: FriendStatus;
+  requested_by: string;
+}
 
 // ----- Create DB function -----
 // export const createDb = (): Kysely<DatabaseSchema> => {
@@ -216,6 +224,17 @@ export const initDB = async (): Promise<void> => {
   console.log(
     "DB init ok: games, matchmaking_queue, tournaments, tournament_participants, tournament_matches, users"
   );
+  
+  await db.schema
+    .createTable("friends")
+    .ifNotExists()
+    .addColumn("friendid", "text", (col) => col.primaryKey())
+    .addColumn("user1", "text", (col) => col.notNull())
+    .addColumn("user2", "text", (col) => col.notNull())
+    .addColumn("friendstatus", "text",(col) => col.notNull().defaultTo("pending"))
+    .addColumn("requested_by", "text") 
+    .execute();
+    console.log("DB init: ensured tables games, matchmaking_queue, users");
 };
 
 /* ---------- User helpers (no any/unknown) ---------- */
@@ -252,17 +271,8 @@ export const saveUserToDatabase = async (user: DatabaseUser): Promise<void> => {
     .execute();
 };
 
-const normalizeUser = (row: DatabaseUser): DatabaseUser => ({
-  ...row,
-  displayname: row.displayname ?? null,
-  avatar: row.avatar ?? null,
-  isEmailVerified: Boolean(row.isEmailVerified), // ensure boolean
-});
-
-export const getUserByUsername = async (
-  username: string
-): Promise<DatabaseUser | null> => {
-  const row = await db
+export const getUserByUsername = async (username: string): Promise<DatabaseUser | null> => {
+  const user = await db
     .selectFrom("users")
     .selectAll()
     .where("username", "=", username)
@@ -270,10 +280,8 @@ export const getUserByUsername = async (
   return row ? normalizeUser(row) : null;
 };
 
-export const getUserById = async (
-  userid: string
-): Promise<DatabaseUser | null> => {
-  const row = await db
+export const getUserById = async (userid: string): Promise<DatabaseUser | null> => {
+  const user = await db
     .selectFrom("users")
     .selectAll()
     .where("userid", "=", userid)

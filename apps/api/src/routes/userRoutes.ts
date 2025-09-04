@@ -7,6 +7,10 @@ import {
   setup2faSchema,
   activate2faSchema,
   verify2faSchema,
+  FriendResponseSchema,
+  FriendRequestBodySchema,
+  FriendAcceptSchema,
+  FriendRejecttSchema,
 } from "../schemas/userSchemas.js";
 
 import {
@@ -22,9 +26,13 @@ import {
   verify2FA,  
   getOnlineUsers,
   updateUserStatus,
+  getFriends,
+  createFriendRequest,
+  acceptFriendRequest,
+  RejectedFriendRequest,
 } from "../controllers/users.js";
-
-import { verifyToken } from "../utils/auth.js"; // for get me 
+import jwt from 'jsonwebtoken';
+import { extractUserIdFromToken, verifyToken } from "../utils/auth.js"; // for get me 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getUserByUsername, getUserByEmail } from '../../../../packages/infra/db/index.js';
 //let JWT_SECRET = "key_for_test",// need to add to env.
@@ -254,32 +262,6 @@ const userRoutes = (app: OpenAPIHono) => {
       return c.json(user);
     }
   );
-    // update user info
-  // app.openapi(
-  //   createRoute({
-  //     method: "put",
-  //     path: "/api/auth/users/:userId",
-  //     responses: {
-  //       200: { description: "User updated successfully" },
-  //       404: { description: "User not found" },
-  //     },
-  //   }),
-  //   async (c) => {
-  //     const { userId } = c.req.param();
-  //     const body = await c.req.json();
-  //     const result = userProfileSchema.safeParse(body);
-  //     if (!result.success) {
-  //       return c.json({ error: result.error.issues }, 400);
-  //     }
-
-  //     const { username, displayname } = result.data;
-  //     const updatedUser = await updateUserProfile(userId, { username, displayname });
-  //     if (!updatedUser) {
-  //       return c.json({ error: "User not found" }, 404);
-  //     }
-  //     return c.json(updatedUser);
-  //   }
-  // );
 
 // update user name , displayname
   app.openapi(
@@ -556,7 +538,7 @@ const userRoutes = (app: OpenAPIHono) => {
     async (c) => {
       try {
         // 1. get Authorization header
-        const authHeader = c.req.header("Authorization");
+        const authHeader = c.req.header("authorization");
         console.log('tooooken: ', authHeader);
         if (!authHeader) {
           return c.json({ error: "Authorization header is required 未登入" }, 401);
@@ -717,169 +699,542 @@ use command to test me router
 // POST api/auth/activate-2fa // 啟用2FA (驗證首次設定)
 //  POST api/auth/verify-2fa // 登入時驗證2FA碼
 
-// setup 2FA  generate qrcode and bind key on google authenticater
-app.openapi(
-  createRoute({
-    method: "post",
-    path: "/api/auth/setup-2fa",
-    request: {
-      headers: z.object({
-        authorization: z.string(),
-      }),
+  // setup 2FA  generate qrcode and bind key on google authenticater
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/auth/setup-2fa",
+      request: {
+        headers: z.object({
+          authorization: z.string(),
+        }),
+      
+      },
+      responses: {
+        200: {
+          description: "2FA setup successful",
+          content: {
+            "application/json": {
+              schema: z.object({
+                qrCode: z.string(),
+                manualEntryKey: z.string(),
+              }),
+            },
+          },
+        },
+        401: { description: "Unauthorized" },
+      },
+      tags: ["2FA"],
+      summary: "setup 2FA",
+    }),
+    async (c) => {
+      try {
+        const authHeader = c.req.header("authorization");
+        if (!authHeader) {
+          return c.json({ error: "Authorization required" }, 401);
+        }
+
+        const tokenVerification = verifyToken(authHeader);// check jwt token
+        if (!tokenVerification.valid) {
+          return c.json({ error: tokenVerification.error }, 401);
+        }
+
+        const result = await setup2FA(tokenVerification.userId!);
+        return c.json(result, 200);
+      } catch (error) {
+        console.error('Setup 2FA error:', error);
+        return c.json({ error: "Failed to setup 2FA" }, 500);
+      }
+    }
+  );
+
+
+  /*
+  curl -X POST http://localhost:4001/api/auth/activate-2fa \
+    -H "Authorization: Bearer ey..." \
+    -H "Content-Type: application/json" \
+    -d "{\"code\":\"......\"}"
+
+  */
+  // activate 2FA
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/auth/activate-2fa",
+      request: {
+        headers: z.object({
+          authorization: z.string(),
+        }),
+        body: {
+          content: {
+            "application/json": {
+              schema: activate2faSchema,
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: "2FA activated" },
+        400: { description: "Invalid code" },
+        401: { description: "Unauthorized" },
+      },
+      tags: ["2FA"],
+      summary: "activate 2FA",
+    }),
+    async (c) => {
+      try {
+        const authHeader = c.req.header("authorization");
+        if (!authHeader) {
+          return c.json({ error: "Authorization required" }, 401);
+        }
+
+        const tokenVerification = verifyToken(authHeader);
+        if (!tokenVerification.valid) {
+          return c.json({ error: tokenVerification.error }, 401);
+        }
+
+        const body = await c.req.json();
+        const result = activate2faSchema.safeParse(body);
+        if (!result.success) {
+          return c.json({ error: result.error.issues }, 400);
+        }
+
+        await activate2FA(tokenVerification.userId!, result.data.code);
+        return c.json({ success: true }, 200);
+      } catch (error) {
+        console.error('Activate 2FA error:', error);
+        if (error instanceof Error && error.message.includes('Invalid')) {
+          return c.json({ error: "Invalid 2FA code" }, 400);
+        }
+        return c.json({ error: "Failed to activate 2FA" }, 500);
+      }
+    }
+  );
+
+  // verify 2FA
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/auth/verify-2fa",
+      request: {
+        body: {
+          content: {
+            "application/json": {
+              schema: verify2faSchema,
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "2FA verified",
+          content: {
+            "application/json": {
+              schema: z.object({
+                token: z.string(),
+                userId: z.string(),
+              }),
+            },
+          },
+        },
+        400: { description: "Invalid 2fa code" },
+      },
+      tags: ["2FA"],
+      summary: "verify 2FA",
+    }),
+    async (c) => {
+      try {
+        const body = await c.req.json();
+        const result = verify2faSchema.safeParse(body);
+        if (!result.success) {
+          return c.json({ error: result.error.issues }, 400);
+        }
+
+        const verificationResult = await verify2FA(result.data.tempToken, result.data.code);
+        return c.json(verificationResult, 200);
+      } catch (error) {
+        console.error('Verify 2FA error:', error);
+        if (error instanceof Error && error.message.includes('Invalid')) {
+          return c.json({ error: "Invalid 2FA code" }, 400);
+        }
+        return c.json({ error: "2FA verification failed" }, 500);
+      }
+    }
+  );
+
+  //friend   取得好友列表
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/friendslist",
+      request: {
+        headers: z.object({
+          authorization: z.string(),
+        }),
+      },
+      responses: {
+        200: {
+          content:{
+            "application/json": {
+              schema: z.array(z.object({
+                id: z.string(),
+                user1: z.string(),
+                user2: z.string(),
+              })),
+            },
+          },
+          },
+        400: { description: "Invalid request" },
+        401: { description: "Unauthorized" },
+        500: { description: "Internal server error" },
+      },
+      tags: ["friends"],
+      summary: "get friends list",
+    }),
+    async (c) => {
+      try {
+        const authHeader = c.req.header("authorization");
+        if (!authHeader) {
+          return c.json({ error: "Authorization required" }, 401);
+        }
+
+        const tokenVerification = verifyToken(authHeader); 
+        if (!tokenVerification.valid) {
+          return c.json({ error: tokenVerification.error }, 401);
+        }
+        const friends = await getFriends(tokenVerification.userId!);
+        
+        return c.json(friends, 200);
+      } catch (error) {
+        console.error('Get friends list error:', error);
+        return c.json({ error: "Internal server error" }, 500);
+      }
+      }
     
-    },
-    responses: {
-      200: {
-        description: "2FA setup successful",
-        content: {
-          "application/json": {
-            schema: z.object({
-              qrCode: z.string(),
-              manualEntryKey: z.string(),
-            }),
-          },
-        },
-      },
-      401: { description: "Unauthorized" },
-    },
-    tags: ["2FA"],
-    summary: "setup 2FA",
-  }),
-  async (c) => {
-    try {
-      const authHeader = c.req.header("authorization");
-      if (!authHeader) {
-        return c.json({ error: "Authorization required" }, 401);
-      }
-
-      const tokenVerification = verifyToken(authHeader);// check jwt token
-      if (!tokenVerification.valid) {
-        return c.json({ error: tokenVerification.error }, 401);
-      }
-
-      const result = await setup2FA(tokenVerification.userId!);
-      return c.json(result, 200);
-    } catch (error) {
-      console.error('Setup 2FA error:', error);
-      return c.json({ error: "Failed to setup 2FA" }, 500);
-    }
-  }
-);
+    
+  );
 
 
-/*
- curl -X POST http://localhost:4001/api/auth/activate-2fa \
-  -H "Authorization: Bearer ey..." \
-  -H "Content-Type: application/json" \
-  -d "{\"code\":\"......\"}"
-
+/* test api/friends/request
+curl -X POST http://localhost:4001/api/friends/request \
+  -H "authorization: Bearer <ey   sender jwt>" \
+  -d '{"receiverId":"<receiver ID>"}'
 */
-// activate 2FA
+interface JWTPayload {
+  userId: string;
+  iat?: number;  // issued at
+  exp?: number;  // expiration time
+  [key: string]: any;  
+}
+// POST  api/friends/request // 發送好友邀請 
 app.openapi(
   createRoute({
     method: "post",
-    path: "/api/auth/activate-2fa",
+    path: "/api/friends/request",
     request: {
       headers: z.object({
-        authorization: z.string(),
+        authorization: z.string().describe("Bearer token for authentication"),
       }),
       body: {
         content: {
           "application/json": {
-            schema: activate2faSchema,
+            schema: FriendRequestBodySchema,
           },
         },
       },
+      
     },
     responses: {
-      200: { description: "2FA activated" },
-      400: { description: "Invalid code" },
-      401: { description: "Unauthorized" },
-    },
-    tags: ["2FA"],
-    summary: "activate 2FA",
-  }),
-  async (c) => {
-    try {
-      const authHeader = c.req.header("authorization");
-      if (!authHeader) {
-        return c.json({ error: "Authorization required" }, 401);
-      }
-
-      const tokenVerification = verifyToken(authHeader);
-      if (!tokenVerification.valid) {
-        return c.json({ error: tokenVerification.error }, 401);
-      }
-
-      const body = await c.req.json();
-      const result = activate2faSchema.safeParse(body);
-      if (!result.success) {
-        return c.json({ error: result.error.issues }, 400);
-      }
-
-      await activate2FA(tokenVerification.userId!, result.data.code);
-      return c.json({ success: true }, 200);
-    } catch (error) {
-      console.error('Activate 2FA error:', error);
-      if (error instanceof Error && error.message.includes('Invalid')) {
-        return c.json({ error: "Invalid 2FA code" }, 400);
-      }
-      return c.json({ error: "Failed to activate 2FA" }, 500);
-    }
-  }
-);
-
-// verify 2FA
-app.openapi(
-  createRoute({
-    method: "post",
-    path: "/api/auth/verify-2fa",
-    request: {
-      body: {
+      201: { 
+        description: "friend request sent successfully",
         content: {
           "application/json": {
-            schema: verify2faSchema,
-          },
-        },
+            schema: FriendResponseSchema,
+          }
+        }    
       },
-    },
-    responses: {
-      200: {
-        description: "2FA verified",
+      400: { description: "friend request is pending or declined",
         content: {
           "application/json": {
             schema: z.object({
-              token: z.string(),
-              userId: z.string(),
-            }),
+              error: z.string(),
+            })
+          }
+        }
+       },
+      409: {
+        description: "Conflict (pair already exists)",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          }
+        }
+      },
+      401: { // 新增缺少的錯誤定義
+        description: "Unauthorized",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            })
+          }
+        }
+      },
+      500: {
+        description: "Internal server error",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          }
+        }
+      },
+    },  
+    tags: ["friends"],
+    summary: "send friend request",
+  }),
+  async (c) => {  
+    try {
+      const authHeader = c.req.header("authorization");
+      
+      if (!authHeader?.startsWith("Bearer ")) {
+        return c.json({ error: "Missing or invalid authorization header" }, 401);
+      }
+      const jwtSecret = 'secret';
+      const token = authHeader.replace("Bearer ", "");
+      const decoded = jwt.verify(token, jwtSecret)as JWTPayload; //
+      const senderId = decoded.userId;
+      if (!senderId) return c.json({ error: "Invalid token" }, 401);
+      const {receiverId} = FriendRequestBodySchema.parse(await c.req.json());
+    
+      const newFriend=  await createFriendRequest(senderId, receiverId);
+      //console.log("✅ Friend request created:", newFriend);
+     return c.json(newFriend, 201);
+  }catch(err : any){
+    console.error("❌ Friend request error:", {
+      message: err?.message,
+      stack: err?.stack,
+      name: err?.name
+    });
+    const msg = err?.message || "friend request failed";
+      // 5. 錯誤轉換成 HTTP 狀態碼
+      if (msg.includes("yourself")) return c.json({ error: msg }, 400);
+      if (msg.includes("already sent")) return c.json({ error: msg }, 400);
+      if (msg.includes("friends now")) return c.json({ error: msg }, 400);
+      if (msg.includes("declined")) return c.json({ error: msg }, 400);
+      if (msg.includes("blocked")) return c.json({ error: msg }, 403);
+      if (msg.includes("pair") && msg.includes("exists"))
+        return c.json({ error: msg }, 409);
+      return c.json({ error: "friend request failed" }, 500);
+    }  
+  }
+);
+
+// POST  api/friends/:requestId/accept // 接受好友邀請
+app.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/friends/{requestId}/accept", // 使用 OpenAPI 標準格式
+    request: {
+      headers: z.object({
+        authorization: z.string().describe("Bearer token for authentication"),
+      }),
+      params: z.object({
+        requestId: z.string().uuid(),
+      }),
+    },
+    responses: {
+      200: { // 改成 200，因為這是更新操作
+        description: "Friend request accepted successfully",
+        content: {
+          "application/json": {
+            schema: FriendAcceptSchema,
           },
         },
       },
-      400: { description: "Invalid 2fa code" },
+      400: {
+        description: "Bad request (e.g. already accepted, not pending, self-accept not allowed)",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+      401: {
+        description: "Unauthorized (no token provided or invalid)",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+      404: {
+        description: "Request not found",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+      500: {
+        description: "Internal server error",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
     },
-    tags: ["2FA"],
-    summary: "verify 2FA",
+    tags: ["friends"],
+    summary: "accept a friend request",
   }),
   async (c) => {
     try {
-      const body = await c.req.json();
-      const result = verify2faSchema.safeParse(body);
-      if (!result.success) {
-        return c.json({ error: result.error.issues }, 400);
+      const auth = c.req.header("authorization");
+      if (!auth?.startsWith("Bearer ")) {
+        return c.json({ error: "Authorization header is required" }, 401);
       }
 
-      const verificationResult = await verify2FA(result.data.tempToken, result.data.code);
-      return c.json(verificationResult, 200);
-    } catch (error) {
-      console.error('Verify 2FA error:', error);
-      if (error instanceof Error && error.message.includes('Invalid')) {
-        return c.json({ error: "Invalid 2FA code" }, 400);
+      const jwtSecret = process.env.JWT_SECRET || 'secret'; // 使用環境變數
+      const token = auth.replace("Bearer ", "");
+      const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
+      const userId = decoded.userId;
+      
+      if (!userId) return c.json({ error: "Invalid token" }, 401);
+
+      const { requestId } = c.req.param();
+      
+      const updated = await acceptFriendRequest(userId, requestId);
+      return c.json(updated, 200); // 與 OpenAPI spec 一致
+      
+    } catch (err: any) {
+      const msg = String(err?.message || "");
+      
+      // JWT 錯誤處理
+      if (err.name === 'JsonWebTokenError') {
+        return c.json({ error: "Invalid token signature" }, 401);
       }
-      return c.json({ error: "2FA verification failed" }, 500);
+      if (err.name === 'TokenExpiredError') {
+        return c.json({ error: "Token expired" }, 401);
+      }
+      
+      // 業務邏輯錯誤處理
+      if (msg.includes("not found")) return c.json({ error: msg }, 404);
+      if (msg.includes("not pending")) return c.json({ error: msg }, 400);
+      if (msg.includes("cannot accept")) return c.json({ error: msg }, 400);
+      if (msg.toLowerCase().includes("unauthorized")) return c.json({ error: msg }, 401);
+      
+      console.error("Accept friend request failed:", err);
+      return c.json({ error: "Internal server error" }, 500);
     }
   }
 );
 
+// POST  api/friends/:requestId/reject // 拒絕好友邀請 
+
+app.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/friends/{requestId}/reject", // 使用 OpenAPI 標準格式
+    request: {
+      headers: z.object({
+        authorization: z.string().describe("Bearer token for authentication"),
+      }),
+      params: z.object({
+        requestId: z.string().uuid(),
+      }),
+    },
+    responses: {
+      200: { // 改成 200，因為這是更新操作
+        description: "Friend request declined successfully",
+        content: {
+          "application/json": {
+            schema: FriendRejecttSchema,
+          },
+        },
+      },
+      400: {
+        description: "Bad request ",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+      401: {
+        description: "Unauthorized (no token provided or invalid)",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+      404: {
+        description: "Request not found",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+      500: {
+        description: "Internal server error",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+    },
+    tags: ["friends"],
+    summary: " declined a friend request (if the request was accepted, it cannot be declined)",
+  }),
+  async (c) => {
+    try {
+      const auth = c.req.header("authorization");
+      if (!auth?.startsWith("Bearer ")) {
+        return c.json({ error: "Authorization header is required" }, 401);
+      }
+
+      const jwtSecret = process.env.JWT_SECRET || 'secret'; 
+      const token = auth.replace("Bearer ", "");
+      const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
+      const userId = decoded.userId;
+      
+      if (!userId) return c.json({ error: "Invalid token" }, 401);
+
+      const { requestId } = c.req.param();
+      
+      const updated = await RejectedFriendRequest(userId, requestId);
+      return c.json(updated, 200); // 與 OpenAPI spec 一致
+      
+    } catch (err: any) {
+      const msg = String(err?.message || "");
+      
+      // JWT 錯誤處理
+      if (err.name === 'JsonWebTokenError') {
+        return c.json({ error: "Invalid token signature" }, 401);
+      }
+      if (err.name === 'TokenExpiredError') {
+        return c.json({ error: "Token expired" }, 401);
+      }
+      
+      // 業務邏輯錯誤處理
+      if (msg.includes("not found")) return c.json({ error: msg }, 404);
+      if (msg.includes("not pending")) return c.json({ error: msg }, 400);
+      if (msg.includes("cannot accept")) return c.json({ error: msg }, 400);
+      if (msg.toLowerCase().includes("unauthorized")) return c.json({ error: msg }, 401);
+      
+      console.error("declined friend request failed:", err);
+      return c.json({ error: "Internal server error" }, 500);
+    }
+  }
+);
+
+
+// DELETE   api/friends/:friendId // 刪除好友 // 封鎖系統 
+// GET  api/friends/blocked // 取得封鎖列表 
+// POST  api/friends/:userId/block // 封鎖用戶
+// POST  api/friends/:userId/unblock // 解除封鎖
 
 };
 

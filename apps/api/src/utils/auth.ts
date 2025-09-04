@@ -25,11 +25,6 @@ export const extractUserIdFromToken = (authHeader: string) => {
       token = authHeader;
     }
 
-    //let jwtSecret = process.env.JWT_SECRET;
-    
-    // if (!process.env.JWT_SECRET ) {
-    //   throw new Error('&&&&JWT_SECRET too weak or missing');
-    // }
     const jwtSecret = 'secret';
     console.log('jwtsecret: ', jwtSecret);
     if (!jwtSecret) {
