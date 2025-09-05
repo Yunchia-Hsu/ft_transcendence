@@ -498,28 +498,37 @@ export const RejectedFriendRequest = async(userId: string, requestId: string):Pr
 
 }
 
-export const deletefriendrequest = async(friendId: string) : promise<Friends> => { 
+export const deletefriendrequest = async(friendId: string, userId: string) : promise<Friends> => { 
   try {
-    const exeistinggame = await db
+    const existingFriend = await db
       .selectFrom ("friends")
       .selectAll()
       .where("friendid", "=",friendId )
       .executeTakeFirst(); // 用途：執行查詢，回傳一個 陣列 (array)。 只抓第一筆
 
-    if (!exeistinggame) {
+    if (!existingFriend) {
       return null;
     }
-    //delete game
+    console.log("Found friend:", existingFriend);
+    //delete request
+    if (existingFriend.friendstatus !== "pending") {
+      throw new Error("Can only delete pending requests");
+    }
+    if (existingFriend.requested_by !== userId) {
+      throw new Error("You can only delete requests you sent");
+    }
     await db
       .deleteFrom("friends")
       .where("friendid", "=",friendId )
       .execute();//用途：執行查詢，回傳一個 陣列 (array)。
-    return {
+      
+      
+      return {
       success:true,
       message: "friend request deleted successfully."
     };
   }catch (err){
-    console.error('Error deleting friend from database:', error);
-    throw new Error('Failed to delete friend request');
+    console.error('Error deleting friend from database:', err);
+    throw err;
   }
 }

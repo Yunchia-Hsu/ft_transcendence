@@ -12,7 +12,7 @@ export interface JWTPayload {
 // defince activated outcome interface定義回傳值的結構
 interface TokenVerificationResult {
   valid: boolean;
-  userId?: string;
+  userId?: string | null;
   error?: string;
 }
 export const extractUserIdFromToken = (authHeader: string) => {
@@ -69,7 +69,7 @@ export function verifyToken(authHeader: string): TokenVerificationResult {
   } catch (err) {
     return {
       valid: false,
-      userId: 'no pass verufyToen so no ID',
+      userId: null,
       error: 'Invalid token formatttt',
     };
   }

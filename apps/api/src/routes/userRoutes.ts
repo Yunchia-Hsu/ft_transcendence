@@ -968,7 +968,7 @@ app.openapi(
           }
         }
       },
-      401: { // 新增缺少的錯誤定義
+      401: { 
         description: "Unauthorized",
         content: {
           "application/json": {
@@ -1293,7 +1293,13 @@ app.openapi(
     }
   }
 );
-// DELETE   api/friends/:friendId // 刪除好友 // 封鎖系統 
+
+/*
+curl -X DELETE http://localhost:4001/api/friends/a33144c7-9368-4e15-b13f-8890c308869c \
+  -H "authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjMDQ3NDlmNy04NTEzLTQ0MGItYjFjNy0yNGVmZGQ1NDZmZWIiLCJ1c2VybmFtZSI6Ijc3NyIsImlhdCI6MTc1NzA3NjYxMCwiZXhwIjoxNzU3MjA2MjEwfQ.IV3KBXfBHuCSGP3gQBZneo7mFWiPNoI3zpQHxOgqB6c" \
+  -H "Content-Type: application/json"
+  */
+// DELETE   api/friends/:friendId // 刪除好友 
 app.openapi(
   createRoute({
     method: "delete",
@@ -1356,19 +1362,37 @@ app.openapi(
         return c.json({ error: "Authorization header is required" }, 401);
       }
       const tokenVerification = verifyToken(authHeader);
-      if (!tokenVerification.valid) {
-        return c.json({ error: tokenVerification.error }, 401);
+      if (!tokenVerification.valid || !tokenVerification.userId)  {
+        return c.json({ error: tokenVerification.error|| "Invalid token" }, 401);
       }
+      const userId = tokenVerification.userId;
+      console.log("User ID:", userId);
       const { friendId } = c.req.param();
-      const result = await deletefriendrequest(friendId);
-      if (!result) {
+      console.log("Looking for friendId:", friendId);
+      const result = await deletefriendrequest(friendId, userId)
+      if (!result){
         return c.json({ error: "friend request not found" }, 404);
       }
       return c.json(result, 200);
 
     }catch(err){
       console.error("Delete friend request error:", err);
-      return c.json({ error: "Internal server error" }, 500);
+    
+      // 根據錯誤訊息回傳適當的狀態碼和訊息
+      const errorMessage = (err as any)?.message || "Internal server error";
+      
+      if (errorMessage.includes("permission")) {
+        return c.json({ error: errorMessage }, 403);
+      }
+      if (errorMessage.includes("pending")) {
+        return c.json({ error: errorMessage }, 400);
+      }
+      if (errorMessage.includes("only delete requests you sent")) {
+        return c.json({ error: errorMessage }, 403);
+      }
+      if (errorMessage.includes("not found")) {
+        return c.json({ error: errorMessage }, 404);
+      }
     }
   }
 );
