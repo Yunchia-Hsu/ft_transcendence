@@ -1353,7 +1353,7 @@ app.openapi(
       },
     },
     tags: ["friends"],
-    summary: "delete friend requests "
+    summary: "delete friend request you send (friendstatus = pending)"
   }),
   async(c) => {
     try{
