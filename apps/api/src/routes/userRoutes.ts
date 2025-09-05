@@ -11,6 +11,7 @@ import {
   FriendRequestBodySchema,
   FriendAcceptSchema,
   FriendRejecttSchema,
+  FriendrequestreceiveSchema,
 } from "../schemas/userSchemas.js";
 
 import {
@@ -30,11 +31,13 @@ import {
   createFriendRequest,
   acceptFriendRequest,
   RejectedFriendRequest,
+  deletefriendrequest,
 } from "../controllers/users.js";
+import type { JWTPayload } from "../utils/auth.js";
 import jwt from 'jsonwebtoken';
 import { extractUserIdFromToken, verifyToken } from "../utils/auth.js"; // for get me 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { getUserByUsername, getUserByEmail } from '../../../../packages/infra/db/index.js';
+import { getUserByUsername, getUserByEmail, db } from '../../../../packages/infra/db/index.js';
 //let JWT_SECRET = "key_for_test",// need to add to env.
 
 const userRoutes = (app: OpenAPIHono) => {
@@ -920,12 +923,7 @@ curl -X POST http://localhost:4001/api/friends/request \
   -H "authorization: Bearer <ey   sender jwt>" \
   -d '{"receiverId":"<receiver ID>"}'
 */
-interface JWTPayload {
-  userId: string;
-  iat?: number;  // issued at
-  exp?: number;  // expiration time
-  [key: string]: any;  
-}
+
 // POST  api/friends/request // 發送好友邀請 
 app.openapi(
   createRoute({
@@ -1230,12 +1228,200 @@ app.openapi(
   }
 );
 
+//GET  api/friends/requests // 取得好友邀請 
+app.openapi(
+  createRoute({
+    method: "get",
+    path:  "/api/friends/requests",
+    request:{
+      headers: z.object({
+        authorization: z.string(),
+      }),
+    },
+    responses: {
+      200: { description: "list of pending requests received. ",
+        content:{
+          "application/json":{
+            schema: FriendrequestreceiveSchema,
+          }
+        }
+      },
+      401: { description: "unauthorized."},
+      500: {
+        description: "Internal server error",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+    },
+    tags: ["friends"],
+    summary: "retrieve pending friend requests"
+    }),
+  async (c) => {
+    try{
+      const auth = c.req.header("authorization");
+      if (!auth){
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      const tokenVerification = verifyToken(auth);
+      if (!tokenVerification.valid) {
+        return c.json({ error: tokenVerification.error }, 401);
+      }
+      //get userid from auth
+      const userId = tokenVerification.userId;
+      //找friendid   status 是pending,  我在pair內 || requestid != userid
+      const rows = await db
+        .selectFrom("friends")
+        .selectAll()
+        .where("friendstatus", "=", "pending")
+        .where((qb)=>
+        qb.or([
+          qb("user1", "=", userId),
+          qb("user2", "=", userId),
+        ])
+        )
+        .where("requested_by", "<>", userId)
+        .execute();
+       return c.json(rows, 200);
 
+    
+    } catch(err){ 
+      console.error("[friends.requests] error:", err);
+      return c.json({ error: "Internal server error" }, 500);
+    }
+  }
+);
 // DELETE   api/friends/:friendId // 刪除好友 // 封鎖系統 
-// GET  api/friends/blocked // 取得封鎖列表 
-// POST  api/friends/:userId/block // 封鎖用戶
-// POST  api/friends/:userId/unblock // 解除封鎖
+app.openapi(
+  createRoute({
+    method: "delete",
+    path: "/api/friends/:friendId",
+    request: {
+      headers:z.object({
+        authorization: z.string().describe("Bearer token for authentication"),
+      }),
+      params: z.object({
+        friendId: z.string().uuid(),//uuid type
+      }),
+    },
+    responses: {
+      200: { 
+        description: "friend request deleted successfully",
+        content: {
+          "application/json": {
+            schema: z.object({ success: z.boolean(), message: z.string(), }),
+          },
+        },
+      },
+      401: { 
+        description: "Unauthorized",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
+      404: { 
+        description: "friend request not found",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
+      500: {
+        description: "Internal server error",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
+    },
+    tags: ["friends"],
+    summary: "delete friend requests "
+  }),
+  async(c) => {
+    try{
+      const authHeader = c.req.header("authorization");
+      if (!authHeader) {
+        return c.json({ error: "Authorization header is required" }, 401);
+      }
+      const tokenVerification = verifyToken(authHeader);
+      if (!tokenVerification.valid) {
+        return c.json({ error: tokenVerification.error }, 401);
+      }
+      const { friendId } = c.req.param();
+      const result = await deletefriendrequest(friendId);
+      if (!result) {
+        return c.json({ error: "friend request not found" }, 404);
+      }
+      return c.json(result, 200);
+
+    }catch(err){
+      console.error("Delete friend request error:", err);
+      return c.json({ error: "Internal server error" }, 500);
+    }
+  }
+);
+
+
+
 
 };
 
 export default userRoutes;
+
+/*
+responses: {
+  400: {
+    description: "Bad request",
+    content: {
+      "application/json": {
+        schema: ErrorResponseSchema,
+      },
+    },
+  },
+  401: {
+    description: "Unauthorized",
+    content: {
+      "application/json": {
+        schema: ErrorResponseSchema,
+      },
+    },
+  },
+  403: {
+    description: "Forbidden",
+    content: {
+      "application/json": {
+        schema: ErrorResponseSchema,
+      },
+    },
+  },
+  404: {
+    description: "Not found",
+    content: {
+      "application/json": {
+        schema: ErrorResponseSchema,
+      },
+    },
+  },
+  500: {
+    description: "Internal server error",
+    content: {
+      "application/json": {
+        schema: ErrorResponseSchema,
+      },
+    },
+  },
+}
+
+*/

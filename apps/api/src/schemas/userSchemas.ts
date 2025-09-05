@@ -72,6 +72,13 @@ export const FriendRequestBodySchema = z.object({
   receiverId: z.string(),
 })
 
+export const  FriendrequestreceiveSchema = z.object({
+  friendid: z.string(),
+  user1: z.string(),
+  user2: z.string(),
+  friendstatus: z.enum(["pending", "accepted", "declined", "blocked"]),
+  requested_by: z.string(),
+});
 
 //export type Freinds = z.infer<typeof FriendResponseschema>;
                       //s.infer 會去 讀取 Zod schema，然後自動生出一個 TypeScript 型別。
