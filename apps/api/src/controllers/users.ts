@@ -8,6 +8,7 @@ import { Statement } from 'sqlite3';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import type { Friends } from "../../../../packages/infra/db/index.js";
+import { success } from 'zod';
 
 
 let nextId = 1;
@@ -479,7 +480,7 @@ export const RejectedFriendRequest = async(userId: string, requestId: string):Pr
   if (!existing) {
     throw new Error("request not found");
   }
-  if (existing.friendstatus !== "pending")
+  if (existing.friendstatus !== "accepted")
   {
     throw new Error("the friend request is not pending");
   }
@@ -495,4 +496,30 @@ export const RejectedFriendRequest = async(userId: string, requestId: string):Pr
 
   return updated;
 
+}
+
+export const deletefriendrequest = async(friendId: string) : promise<Friends> => { 
+  try {
+    const exeistinggame = await db
+      .selectFrom ("friends")
+      .selectAll()
+      .where("friendid", "=",friendId )
+      .executeTakeFirst(); // 用途：執行查詢，回傳一個 陣列 (array)。 只抓第一筆
+
+    if (!exeistinggame) {
+      return null;
+    }
+    //delete game
+    await db
+      .deleteFrom("friends")
+      .where("friendid", "=",friendId )
+      .execute();//用途：執行查詢，回傳一個 陣列 (array)。
+    return {
+      success:true,
+      message: "friend request deleted successfully."
+    };
+  }catch (err){
+    console.error('Error deleting friend from database:', error);
+    throw new Error('Failed to delete friend request');
+  }
 }

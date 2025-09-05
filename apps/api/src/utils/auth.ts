@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 
 // define JWT payload interface定義 JWT 解碼後的結構
-interface JWTPayload {
+export interface JWTPayload {
   userId: string;
   iat?: number;  // issued at
   exp?: number;  // expiration time
@@ -59,7 +59,7 @@ export function verifyToken(authHeader: string): TokenVerificationResult {
       : authHeader;
 
     const decoded = jwt.verify(token, 'secret') as { userId: string };//JWT_SECRET
-    console.log("[DELETE /users/:userId] header =", token);
+    //console.log("[DELETE /users/:userId] header =", token);
 
     return {
       valid: true,
