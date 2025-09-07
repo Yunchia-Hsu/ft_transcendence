@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
-import { createDb } from "infra/db/index.js";
+import { db } from "infra/db/index.js";
 import { enqueue, dequeue, getStatus } from "../controllers/matchmaking.js";
 import {
   enqueueBodySchema,
@@ -13,7 +13,7 @@ import {
 } from "../schemas/matchmakingSchemas.js";
 
 const matchmakingRoutes = (app: OpenAPIHono) => {
-  const db = createDb();
+  // const db = createDb();
 
   app.openapi(
     createRoute({

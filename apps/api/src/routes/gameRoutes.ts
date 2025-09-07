@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
-import { createDb } from "infra/db/index.js";
+import { db } from "infra/db/index.js";
 import {
   gameStartSchema,
   moveSchema,
@@ -17,7 +17,7 @@ import {
 } from "../controllers/games.js";
 
 const gameRoutes = (app: OpenAPIHono) => {
-  const db = createDb();
+  // const db = createDb();
 
   // POST /api/games/start — manual game (useful for testing/admin)
   app.openapi(

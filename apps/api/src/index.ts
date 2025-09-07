@@ -6,6 +6,7 @@ import gameRoutes from "./routes/gameRoutes.js";
 import matchmakingRoutes from "./routes/matchmakingRoutes.js";
 import tournamentRoutes from "./routes/tournamentRoutes.js";
 import tournamentParticipantsRoutes from "./routes/tournaments.participants.js";
+import tournamentLifecycleRoutes from "./routes/tournaments.lifecycle.js";
 import { initDB } from "infra/db/index.js";
 import { config } from "dotenv";
 
@@ -16,6 +17,7 @@ gameRoutes(app);
 matchmakingRoutes(app);
 tournamentRoutes(app);
 tournamentParticipantsRoutes(app);
+tournamentLifecycleRoutes(app);
 
 // Swagger UI: http://localhost:4001/ui
 app.get(

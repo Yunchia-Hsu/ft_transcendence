@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { createDb } from "infra/db/index.js";
+import { db } from "infra/db/index.js";
 import {
   tournamentCreateSchema,
   tournamentItemSchema,
@@ -17,7 +17,7 @@ import {
 import { verifyToken } from "../utils/auth.js"; // <-- use your existing verifier
 
 const tournamentRoutes = (app: OpenAPIHono) => {
-  const db = createDb();
+  // const db = createDb();
 
   // POST /api/tournaments — create (JWT)
   app.openapi(

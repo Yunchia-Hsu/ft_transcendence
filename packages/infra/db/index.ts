@@ -10,6 +10,14 @@ const __dirname = path.dirname(__filename);
 
 const dbDir = process.env.DB_DIR || __dirname;
 const dbPath = path.join(dbDir, "games.sqlite");
+// at top-level after computing dbPath
+export const DB_PATH = dbPath;
+
+// in initDB()
+console.log("Using SQLite file:", DB_PATH);
+console.log(
+  "DB init ok: games, matchmaking_queue, tournaments, tournament_participants, tournament_matches, users"
+);
 
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
