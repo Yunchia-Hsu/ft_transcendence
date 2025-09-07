@@ -1,16 +1,18 @@
+// apps/api/src/routes/tournaments.participants.ts
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { createDb } from "infra/db/index.js";
+import { db } from "infra/db/index.js";
 import { verifyToken } from "../utils/auth.js";
 import {
   tournamentIdParamSchema,
   errorSchema,
+  tournamentJoinBodySchema,
 } from "../schemas/tournamentSchemas.js";
-import { tournamentJoinBodySchema } from "../schemas/tournamentSchemas.js";
-import { joinTournament } from "../controllers/tournamentParticipants.js";
+import {
+  joinTournament,
+  leaveTournament,
+} from "../controllers/tournamentParticipants.js";
 
-const tournamentParticipantsRoutes = (app: OpenAPIHono) => {
-  const db = createDb();
-
+const tournamentParticipantsRoutes = (app: OpenAPIHono): void => {
   // POST /api/tournaments/:tournamentId/participants — join (current user)
   app.openapi(
     createRoute({
@@ -59,23 +61,21 @@ const tournamentParticipantsRoutes = (app: OpenAPIHono) => {
     }),
     async (c) => {
       try {
-        // auth
         const auth =
           c.req.header("authorization") ?? c.req.header("Authorization");
         if (!auth)
           return c.json({ ok: false, code: "UNAUTHORIZED" } as const, 401);
-
         const token = verifyToken(auth);
         if (!token.valid || !token.userId)
           return c.json({ ok: false, code: "UNAUTHORIZED" } as const, 401);
 
-        // input
         const { tournamentId } = c.req.valid("param");
-        const body = (await c.req.json().catch(() => ({}))) as unknown;
-        const parsed = tournamentJoinBodySchema.safeParse(body);
+
+        // optional body
+        const raw = await c.req.json().catch(() => ({}));
+        const parsed = tournamentJoinBodySchema.safeParse(raw);
         const nickname = parsed.success ? parsed.data.nickname : undefined;
 
-        // do join
         const result = await joinTournament(db, {
           tournamentId,
           userId: token.userId,
@@ -91,8 +91,81 @@ const tournamentParticipantsRoutes = (app: OpenAPIHono) => {
             return c.json({ ok: false, code: "FULL" }, 409);
         }
 
-        // optional: broadcast over WS here
-        // broadcastTournament(tournamentId, { type: "participant_joined", userId: token.userId });
+        return c.json(result, 200);
+      } catch (err) {
+        return c.json(
+          { ok: false, code: "SERVER_ERROR", message: (err as Error).message },
+          500
+        );
+      }
+    }
+  );
+
+  // DELETE /api/tournaments/:tournamentId/participants — leave (current user)
+  app.openapi(
+    createRoute({
+      method: "delete",
+      path: "/api/tournaments/{tournamentId}/participants",
+      request: {
+        params: tournamentIdParamSchema,
+        headers: z.object({
+          authorization: z.string().describe("Bearer <JWT>"),
+        }),
+      },
+      responses: {
+        200: {
+          description: "Left (idempotent)",
+          content: {
+            "application/json": {
+              schema: z.union([
+                z.object({ ok: z.literal(true), left: z.literal(true) }),
+                z.object({ ok: z.literal(true), alreadyLeft: z.literal(true) }),
+              ]),
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: { "application/json": { schema: errorSchema } },
+        },
+        404: {
+          description: "Tournament not found",
+          content: { "application/json": { schema: errorSchema } },
+        },
+        409: {
+          description: "Tournament already started or owner cannot leave",
+          content: { "application/json": { schema: errorSchema } },
+        },
+        500: { description: "Server error" },
+      },
+      tags: ["tournaments"],
+      summary: "Leave tournament (current user)",
+      operationId: "leaveTournament",
+    }),
+    async (c) => {
+      try {
+        const auth =
+          c.req.header("authorization") ?? c.req.header("Authorization");
+        if (!auth)
+          return c.json({ ok: false, code: "UNAUTHORIZED" } as const, 401);
+        const token = verifyToken(auth);
+        if (!token.valid || !token.userId)
+          return c.json({ ok: false, code: "UNAUTHORIZED" } as const, 401);
+
+        const { tournamentId } = c.req.valid("param");
+        const result = await leaveTournament(db, {
+          tournamentId,
+          userId: token.userId,
+        });
+
+        if (!result.ok) {
+          if (result.code === "NOT_FOUND")
+            return c.json({ ok: false, code: "NOT_FOUND" }, 404);
+          if (result.code === "ALREADY_STARTED")
+            return c.json({ ok: false, code: "ALREADY_STARTED" }, 409);
+          if (result.code === "OWNER_CANNOT_LEAVE")
+            return c.json({ ok: false, code: "OWNER_CANNOT_LEAVE" }, 409);
+        }
 
         return c.json(result, 200);
       } catch (err) {
@@ -105,4 +178,5 @@ const tournamentParticipantsRoutes = (app: OpenAPIHono) => {
   );
 };
 
+// ✅ default export (your server imports default)
 export default tournamentParticipantsRoutes;

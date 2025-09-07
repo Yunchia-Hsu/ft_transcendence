@@ -4,15 +4,12 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 
-// ----- DB Paths -----
-// Use import.meta.url to get the current file path in ES modules
+/* ---------- Paths ---------- */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const dbDir = process.env.DB_DIR || __dirname;
 const dbPath = path.join(dbDir, "games.sqlite");
-// const dbDir = path.join(__dirname);
-// const dbPath = path.join(dbDir, "games.sqlite");
 
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
@@ -21,17 +18,17 @@ if (!fs.existsSync(dbDir)) {
   console.log("DB folder exists:", dbDir);
 }
 
-// ----- Interfaces -----
+/* ---------- Types ---------- */
 export interface Game {
-  game_id: string; // Primary key
+  game_id: string; // PK
   player1: string;
   player2: string;
-  score: string;
-  status: string;
+  score: string; // serialized game state or score
+  status: string; // "pending" | "ongoing" | "completed"
 }
 
 export interface Tournament {
-  id: string;
+  id: string; // PK
   name: string;
   type: string; // "single_elim"
   size: number; // 4, 8, 16...
@@ -41,15 +38,38 @@ export interface Tournament {
 }
 
 export interface TournamentParticipant {
-  tournament_id: string;
-  user_id: string;
+  tournament_id: string; // PK part
+  user_id: string; // PK part
   nickname: string;
   joined_at: string; // ISO
 }
 
+/** Link each bracket slot to an optional game and players */
+export interface TournamentMatch {
+  tournament_id: string; // PK part
+  round: number; // PK part (1..)
+  match_index: number; // PK part (0..N-1 within round)
+  game_id: string | null;
+  p1_user_id: string | null;
+  p2_user_id: string | null;
+  winner_user_id: string | null;
+}
+
 export interface MatchmakingQueue {
   user_id: string;
-  queued_at: string; // timestamp
+  queued_at: string; // ISO
+}
+
+export interface DatabaseUser {
+  userid: string;
+  username: string;
+  displayname: string | null;
+  email: string;
+  password: string;
+  isEmailVerified: boolean; // coerced to boolean in helpers
+  createdAt: string;
+  avatar: string | null;
+  status: string;
 }
 
 export interface DatabaseSchema {
@@ -57,49 +77,25 @@ export interface DatabaseSchema {
   matchmaking_queue: MatchmakingQueue;
   tournaments: Tournament;
   tournament_participants: TournamentParticipant;
-  users: DatabaseUser; // yunchia added 
+  tournament_matches: TournamentMatch;
+  users: DatabaseUser;
 }
 
-export interface DatabaseUser {    //yunchia added 25.08
-  userid: string;
-  username: string;
-  displayname: string | null;
-  email: string;
-  password: string;
-  isEmailVerified: boolean;
-  createdAt: string;
-  avatar: string | null;
-  status: string;
-}
-
-
-// ----- Create DB function -----
-// export const createDb = (): Kysely<DatabaseSchema> => {
-//   const db = new Kysely<DatabaseSchema>({
-//     dialect: new SqliteDialect({
-//       database: new Database(dbPath),
-//     }),
-//   });
-//   return db;
-// };
+/* ---------- DB factory & singleton ---------- */
 export const createDb = (): Kysely<DatabaseSchema> => {
   const sqlite = new Database(dbPath);
-
-  // non block 
-  sqlite.pragma('journal_mode = WAL');   // (Write-Ahead Logging) one write in multi read 
-  sqlite.pragma('busy_timeout = 5000');  // wait 5sec and go to SQLITE_BUSY
-
+  sqlite.pragma("journal_mode = WAL");
+  sqlite.pragma("busy_timeout = 5000");
+  sqlite.pragma("foreign_keys = ON");
   return new Kysely<DatabaseSchema>({
     dialect: new SqliteDialect({ database: sqlite }),
   });
 };
 
-
-// ----- Export a single DB instance -----
 export const db = createDb();
 
-// ----- Initialize table if not exists -----
-export const initDB = async () => {
+/* ---------- Schema init ---------- */
+export const initDB = async (): Promise<void> => {
   await db.schema
     .createTable("games")
     .ifNotExists()
@@ -110,7 +106,6 @@ export const initDB = async () => {
     .addColumn("status", "text")
     .execute();
 
-  // matchmaking_queue (one row per waiting user)
   await db.schema
     .createTable("matchmaking_queue")
     .ifNotExists()
@@ -122,25 +117,18 @@ export const initDB = async () => {
     .createTable("tournaments")
     .ifNotExists()
     .addColumn("id", "text", (c) => c.primaryKey())
-    .addColumn("name", "text")
-    .addColumn("type", "text")
-    .addColumn("size", "integer")
-    .addColumn("status", "text")
-    .addColumn("created_at", "text")
-    .addColumn("owner_id", "text")
+    .addColumn("name", "text", (c) => c.notNull())
+    .addColumn("type", "text", (c) => c.notNull())
+    .addColumn("size", "integer", (c) => c.notNull())
+    .addColumn("status", "text", (c) => c.notNull())
+    .addColumn("created_at", "text", (c) => c.notNull())
+    .addColumn("owner_id", "text", (c) => c.notNull())
     .execute();
 
   await db.schema
     .createTable("tournament_participants")
     .ifNotExists()
-    .addColumn(
-      "tournament_id",
-      "text",
-      (col) => col.notNull()
-      // if we decide on FK and cascade:
-      // .references("tournaments.id")
-      // .onDelete("cascade")
-    )
+    .addColumn("tournament_id", "text", (col) => col.notNull())
     .addColumn("user_id", "text", (col) => col.notNull())
     .addColumn("nickname", "text", (col) => col.notNull())
     .addColumn("joined_at", "text", (col) => col.notNull())
@@ -150,8 +138,19 @@ export const initDB = async () => {
     ])
     .execute();
 
-  console.log("DB init: ensured tables games, matchmaking_queue");
-  // user data
+  await db.schema
+    .createTable("tournament_matches")
+    .ifNotExists()
+    .addColumn("tournament_id", "text", (c) => c.notNull())
+    .addColumn("round", "integer", (c) => c.notNull())
+    .addColumn("match_index", "integer", (c) => c.notNull())
+    .addColumn("game_id", "text")
+    .addColumn("p1_user_id", "text")
+    .addColumn("p2_user_id", "text")
+    .addColumn("winner_user_id", "text")
+    .addPrimaryKeyConstraint("tm_pk", ["tournament_id", "round", "match_index"])
+    .execute();
+
   await db.schema
     .createTable("users")
     .ifNotExists()
@@ -160,31 +159,58 @@ export const initDB = async () => {
     .addColumn("displayname", "text")
     .addColumn("email", "text", (col) => col.notNull().unique())
     .addColumn("password", "text", (col) => col.notNull())
-    .addColumn("isEmailVerified", "integer", (col) => col.notNull().defaultTo(0))
+    .addColumn("isEmailVerified", "integer", (col) =>
+      col.notNull().defaultTo(0)
+    )
     .addColumn("createdAt", "text", (col) => col.notNull())
     .addColumn("avatar", "text")
     .addColumn("status", "text", (col) => col.notNull().defaultTo("offline"))
     .execute();
-  
-    console.log("DB init: ensured tables games, matchmaking_queue, users");
+
+  // Helpful indexes
+  await db.schema
+    .createIndex("idx_tournaments_owner")
+    .ifNotExists()
+    .on("tournaments")
+    .columns(["owner_id"])
+    .execute();
+
+  await db.schema
+    .createIndex("idx_tp_tournament")
+    .ifNotExists()
+    .on("tournament_participants")
+    .columns(["tournament_id"])
+    .execute();
+
+  await db.schema
+    .createIndex("idx_tm_tournament_round")
+    .ifNotExists()
+    .on("tournament_matches")
+    .columns(["tournament_id", "round"])
+    .execute();
+
+  console.log(
+    "DB init ok: games, matchmaking_queue, tournaments, tournament_participants, tournament_matches, users"
+  );
 };
 
+/* ---------- User helpers (no any/unknown) ---------- */
 
-// check if users exists
-export const checkUserExists = async (username: string, email: string): Promise<boolean> => {
+export const checkUserExists = async (
+  username: string,
+  email: string
+): Promise<boolean> => {
   const existingUser = await db
     .selectFrom("users")
     .select("userid")
-    .where((eb) => eb.or([
-      eb("username", "=", username),
-      eb("email", "=", email)
-    ]))
+    .where((eb) =>
+      eb.or([eb("username", "=", username), eb("email", "=", email)])
+    )
     .executeTakeFirst();
 
   return existingUser !== undefined;
 };
 
-// save users to database
 export const saveUserToDatabase = async (user: DatabaseUser): Promise<void> => {
   await db
     .insertInto("users")
@@ -202,70 +228,42 @@ export const saveUserToDatabase = async (user: DatabaseUser): Promise<void> => {
     .execute();
 };
 
-// 根據用戶名取得用戶
-export const getUserByUsername = async (username: string): Promise<DatabaseUser | null> => {
-  const user = await db
+const normalizeUser = (row: DatabaseUser): DatabaseUser => ({
+  ...row,
+  displayname: row.displayname ?? null,
+  avatar: row.avatar ?? null,
+  isEmailVerified: Boolean(row.isEmailVerified), // ensure boolean
+});
+
+export const getUserByUsername = async (
+  username: string
+): Promise<DatabaseUser | null> => {
+  const row = await db
     .selectFrom("users")
     .selectAll()
     .where("username", "=", username)
     .executeTakeFirst();
-
-  if (!user) return null;
-
-  return {
-    userid: user.userid,
-    username: user.username,
-    displayname: user.displayname,
-    email: user.email,
-    password: user.password,
-    isEmailVerified: user.isEmailVerified, // Already a boolean
-    createdAt: user.createdAt,
-    avatar: user.avatar,
-    status: user.status,
-  };
+  return row ? normalizeUser(row) : null;
 };
 
-// 根據 userid 取得用戶
-export const getUserById = async (userid: string): Promise<DatabaseUser | null> => {
-  const user = await db
+export const getUserById = async (
+  userid: string
+): Promise<DatabaseUser | null> => {
+  const row = await db
     .selectFrom("users")
     .selectAll()
     .where("userid", "=", userid)
     .executeTakeFirst();
-
-  if (!user) return null;
-
-  return {
-    userid: user.userid,
-    username: user.username,
-    displayname: user.displayname,
-    email: user.email,
-    password: user.password,
-    isEmailVerified: user.isEmailVerified,
-    createdAt: user.createdAt,
-    avatar: user.avatar,
-    status: user.status,
-  };
+  return row ? normalizeUser(row) : null;
 };
 
-export const getUserByEmail = async (email: string): Promise<DatabaseUser | null> => {
-  const user = await db
-    .selectFrom('users')
+export const getUserByEmail = async (
+  email: string
+): Promise<DatabaseUser | null> => {
+  const row = await db
+    .selectFrom("users")
     .selectAll()
-    .where('email', '=', email)
+    .where("email", "=", email)
     .executeTakeFirst();
-
-  if (!user) return null;
-
-  return {
-    userid: user.userid,
-    username: user.username,
-    displayname: user.displayname,
-    email: user.email,
-    password: user.password,            
-    isEmailVerified: user.isEmailVerified,
-    createdAt: user.createdAt,
-    avatar: user.avatar,
-    status: user.status,
-  };
+  return row ? normalizeUser(row) : null;
 };

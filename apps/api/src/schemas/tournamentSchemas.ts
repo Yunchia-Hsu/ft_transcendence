@@ -8,7 +8,6 @@ const tournamentTypeCoerced = z.preprocess((v) => {
 
 export const tournamentCreateSchema = z.object({
   name: z.string().min(1).openapi({ example: "Weekend Cup" }),
-  // if your enum value is "single_elim", keep the example consistent:
   type: tournamentTypeCoerced.openapi({ example: "single_elim" }),
   size: z.number().int().positive().openapi({ example: 8 }),
 });
