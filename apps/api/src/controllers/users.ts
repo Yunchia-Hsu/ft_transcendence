@@ -42,6 +42,8 @@ export const registerUser = async (data: { username: string; email: string; pass
     createdAt: new Date().toISOString(),
     avatar: null,
     status: "offline",
+    twoFactorSecret: null,
+    twoFactorEnabled: 0,//false
   };
   
   // save data to data base
@@ -131,10 +133,13 @@ export const getUserProfile = async (userid: string): Promise<DatabaseUser | nul
     displayname: row.displayname,               // string | null
     email: row.email,
     password: row.password,                     // bcrypt 
-    isEmailVerified: !!row.isEmailVerified,     // 確保是 boolean
+    isEmailVerified: !!row.isEmailVerified,     // boolean
     createdAt: row.createdAt,
     avatar: row.avatar,                         // string | null
     status: row.status ?? 'offline',
+    twoFactorSecret: row.twoFactorSecret || null, // string | null
+  
+    twoFactorEnabled: Number (!!row.twoFactorEnabled),
   };
                        
   return user;
@@ -162,7 +167,7 @@ export const updateUserProfile = async (userId: string, data: { username: string
       .executeTakeFirst();
     
     if (!updatedUser) {
-      return null;
+      throw new Error("Friend not found");
     }
     
     return {
@@ -375,8 +380,14 @@ export const getFriends = async (userId: string) => {
   const friends = await db
     .selectFrom("friends")
     .select(["friendid", "user1", "user2"])
-    .where("user1", "=", userId)
-    .or("user2", "=", userId)
+    // .where((qb) =>
+    //   qb.where("user1", "=", userId).orWhere("user2", "=", userId)
+    // )
+    .where((eb) =>
+      eb.or([
+        eb('user1', '=', userId),
+        eb('user2', '=', userId),
+      ]))
     .execute();
   return friends;
 };
@@ -439,7 +450,7 @@ try{
 };
 }
 
-export const acceptFriendRequest = async(userId: string, requestId: string):Promise<Friend> => {
+export const acceptFriendRequest = async(userId: string, requestId: string):Promise<Friends> => {
  
   
   const existing = await db
@@ -469,7 +480,7 @@ export const acceptFriendRequest = async(userId: string, requestId: string):Prom
 }
 
 
-export const RejectedFriendRequest = async(userId: string, requestId: string):Promise<Friend> => {
+export const RejectedFriendRequest = async(userId: string, requestId: string):Promise<Friends> => {
  
   
   const existing = await db
@@ -498,16 +509,18 @@ export const RejectedFriendRequest = async(userId: string, requestId: string):Pr
 
 }
 
-export const deletefriendrequest = async(friendId: string, userId: string) : promise<Friends> => { 
+
+export const deletefriendrequest = async(friendId: string, userId: string) : Promise<{ success: boolean; message: string }> => { 
   try {
     const existingFriend = await db
       .selectFrom ("friends")
       .selectAll()
       .where("friendid", "=",friendId )
-      .executeTakeFirst(); // 用途：執行查詢，回傳一個 陣列 (array)。 只抓第一筆
+      .executeTakeFirst();
 
     if (!existingFriend) {
-      return null;
+      throw new Error("no friend exists");
+      //return null;
     }
     console.log("Found friend:", existingFriend);
     //delete request
@@ -526,6 +539,40 @@ export const deletefriendrequest = async(friendId: string, userId: string) : pro
       return {
       success:true,
       message: "friend request deleted successfully."
+    };
+  }catch (err){
+    console.error('Error deleting friendrequest from database:', err);
+    throw err;
+  }
+}
+
+export const deletefriend = async(friendId: string, userId: string) : Promise<{ success: boolean; message: string }> => { 
+  try {
+    const existingFriend = await db
+      .selectFrom ("friends")
+      .selectAll()
+      .where("friendid", "=",friendId )
+      .executeTakeFirst();
+
+    if (!existingFriend) {
+      throw new Error("no friend exists");
+      //return null;
+    }
+    console.log("Found friend:", existingFriend);
+    //delete request
+    if (existingFriend.friendstatus == "pending") {
+      throw new Error("Cannot delete pending requests");
+    }
+   
+    await db
+      .deleteFrom("friends")
+      .where("friendid", "=",friendId )
+      .execute();//用途：執行查詢，回傳一個 陣列 (array)。
+      
+      
+      return {
+      success:true,
+      message: "friend deleted successfully."
     };
   }catch (err){
     console.error('Error deleting friend from database:', err);

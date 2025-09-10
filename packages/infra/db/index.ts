@@ -1,5 +1,5 @@
 import { Kysely, SqliteDialect } from "kysely";
-import Database from "better-sqlite3";
+import  Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -58,7 +58,7 @@ export interface DatabaseSchema {
   tournaments: Tournament;
   tournament_participants: TournamentParticipant;
   users: DatabaseUser; 
-  //friends: Friends;
+  friends: Friends;
 }
 
 export interface DatabaseUser {    
@@ -242,6 +242,8 @@ export const getUserByUsername = async (username: string): Promise<DatabaseUser 
     createdAt: user.createdAt,
     avatar: user.avatar,
     status: user.status,
+    twoFactorSecret: user.twoFactorSecret,
+    twoFactorEnabled: user.twoFactorEnabled,
   };
 };
 
@@ -288,5 +290,7 @@ export const getUserByEmail = async (email: string): Promise<DatabaseUser | null
     createdAt: user.createdAt,
     avatar: user.avatar,
     status: user.status,
+    twoFactorSecret: user.twoFactorSecret,
+    twoFactorEnabled: user.twoFactorEnabled,
   };
 };
