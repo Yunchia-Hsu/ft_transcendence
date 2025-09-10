@@ -32,6 +32,7 @@ import {
   acceptFriendRequest,
   RejectedFriendRequest,
   deletefriendrequest,
+  deletefriend,
 } from "../controllers/users.js";
 import type { JWTPayload } from "../utils/auth.js";
 import jwt from 'jsonwebtoken';
@@ -74,7 +75,7 @@ const userRoutes = (app: OpenAPIHono) => {
           content: {
             "application/json": {
               schema: z.object({
-                error: z.array(z.any()),
+                error: z.string(),
               }),
             },
           },
@@ -109,7 +110,7 @@ const userRoutes = (app: OpenAPIHono) => {
         const result = registerSchema.safeParse(body);
         
         if (!result.success) {
-          return c.json({ error: result.error.issues }, 400);
+          return c.json({ error: JSON.stringify(result.error.issues) }, 400);
         }
 
         const { username, email, password } = result.data;
@@ -154,8 +155,10 @@ const userRoutes = (app: OpenAPIHono) => {
           content: {
             "application/json": {
               schema: z.object({
-                token: z.string(),
-                userId: z.string(),
+                token: z.string().optional(),
+                userId: z.string().optional(),
+                requireTwoFactor: z.boolean().optional(),
+                tempToken: z.string().optional(),
               }),
             },
           },
@@ -316,8 +319,28 @@ const userRoutes = (app: OpenAPIHono) => {
             },
           },
         },
+        403: { 
+          description: "You can only update your own profile",
+          content: {
+            "application/json": {
+              schema: z.object({
+                error: z.string(),
+              }),
+            },
+          },
+        },
         404: { 
           description: "User not found",
+          content: {
+            "application/json": {
+              schema: z.object({
+                error: z.string(),
+              }),
+            },
+          },
+        },
+        500: {
+          description: "Internal server error",
           content: {
             "application/json": {
               schema: z.object({
@@ -340,7 +363,7 @@ const userRoutes = (app: OpenAPIHono) => {
   
         const tokenVerification = verifyToken(authHeader);
         if (!tokenVerification.valid) {
-          return c.json({ error: tokenVerification.error }, 401);
+          return c.json({ error: tokenVerification.error || "Unauthorized" }, 401);
         }
   
         // 2. Get userId from URL params
@@ -456,7 +479,7 @@ const userRoutes = (app: OpenAPIHono) => {
   
         const tokenVerification = verifyToken(authHeader);
         if (!tokenVerification.valid) {
-          return c.json({ error: tokenVerification.error }, 401);
+          return c.json({ error: tokenVerification.error || "unauthorized"}, 401);
         }
   
         // 2. Get userId from URL params (fix: was incorrectly using email)
@@ -472,7 +495,7 @@ const userRoutes = (app: OpenAPIHono) => {
         if (!result) {
           return c.json({ error: "User not found" }, 404);
         }
-        return c.json(result, 200);
+        return c.json({ success: true, message: "Friend request deleted successfully" }, 200);
         
       } catch (error) {
         console.error('Error deleting user:', error);
@@ -544,14 +567,14 @@ const userRoutes = (app: OpenAPIHono) => {
         const authHeader = c.req.header("authorization");
         console.log('tooooken: ', authHeader);
         if (!authHeader) {
-          return c.json({ error: "Authorization header is required 未登入" }, 401);
+          return c.json({ error: "Authorization header is required " }, 401);
         }
 
         // 2. veryfy token and get userId
         const tokenVerification = verifyToken(authHeader);
         console.log('userid: ', tokenVerification);
         if (!tokenVerification.valid) {
-          return c.json({ error: tokenVerification.error }, 401);
+          return c.json({ error: tokenVerification.error || "unauthorized" }, 401);
         }
  
         // 3. retrieve user info
@@ -688,6 +711,9 @@ use command to test me router
           return c.json({ error: parsed.error.issues }, 400);
         }
         console.log('userId: ', userId);
+        if (!userId) {
+          return c.json({ error: "User ID is missing or invalid" }, 400);
+        }
         const result = await updateUserStatus(userId, parsed.data.status);
         return c.json(result, 200);
       } catch (error) {
@@ -869,7 +895,7 @@ use command to test me router
   app.openapi(
     createRoute({
       method: "get",
-      path: "/api/friendslist",
+      path: "/api/friends",
       request: {
         headers: z.object({
           authorization: z.string(),
@@ -877,16 +903,18 @@ use command to test me router
       },
       responses: {
         200: {
+          description: "List of friends retrieved successfully",
           content:{
             "application/json": {
               schema: z.array(z.object({
                 id: z.string(),
                 user1: z.string(),
                 user2: z.string(),
+                
               })),
             },
           },
-          },
+        },
         400: { description: "Invalid request" },
         401: { description: "Unauthorized" },
         500: { description: "Internal server error" },
@@ -928,7 +956,7 @@ curl -X POST http://localhost:4001/api/friends/request \
 app.openapi(
   createRoute({
     method: "post",
-    path: "/api/friends/request",
+    path: "/api/friends/request/{friendId}/send",
     request: {
       headers: z.object({
         authorization: z.string().describe("Bearer token for authentication"),
@@ -1019,7 +1047,7 @@ app.openapi(
       if (msg.includes("already sent")) return c.json({ error: msg }, 400);
       if (msg.includes("friends now")) return c.json({ error: msg }, 400);
       if (msg.includes("declined")) return c.json({ error: msg }, 400);
-      if (msg.includes("blocked")) return c.json({ error: msg }, 403);
+      if (msg.includes("unauthorized")) return c.json({ error: msg }, 401);
       if (msg.includes("pair") && msg.includes("exists"))
         return c.json({ error: msg }, 409);
       return c.json({ error: "friend request failed" }, 500);
@@ -1031,7 +1059,7 @@ app.openapi(
 app.openapi(
   createRoute({
     method: "post",
-    path: "/api/friends/{requestId}/accept", // 使用 OpenAPI 標準格式
+    path: "/api/friends/request/{friendId}/accept", // 使用 OpenAPI 標準格式
     request: {
       headers: z.object({
         authorization: z.string().describe("Bearer token for authentication"),
@@ -1099,9 +1127,9 @@ app.openapi(
       
       if (!userId) return c.json({ error: "Invalid token" }, 401);
 
-      const { requestId } = c.req.param();
+      const { friendId } = c.req.param();
       
-      const updated = await acceptFriendRequest(userId, requestId);
+      const updated = await acceptFriendRequest(userId, friendId);
       return c.json(updated, 200); // 與 OpenAPI spec 一致
       
     } catch (err: any) {
@@ -1132,7 +1160,7 @@ app.openapi(
 app.openapi(
   createRoute({
     method: "post",
-    path: "/api/friends/{requestId}/reject", // 使用 OpenAPI 標準格式
+    path: "/api/friends/request/{friendId}/reject", // 使用 OpenAPI 標準格式
     request: {
       headers: z.object({
         authorization: z.string().describe("Bearer token for authentication"),
@@ -1200,10 +1228,10 @@ app.openapi(
       
       if (!userId) return c.json({ error: "Invalid token" }, 401);
 
-      const { requestId } = c.req.param();
+      const { friendId } = c.req.param();
       
-      const updated = await RejectedFriendRequest(userId, requestId);
-      return c.json(updated, 200); // 與 OpenAPI spec 一致
+      const updated = await RejectedFriendRequest(userId, friendId);
+      return c.json(updated, 200); 
       
     } catch (err: any) {
       const msg = String(err?.message || "");
@@ -1232,7 +1260,7 @@ app.openapi(
 app.openapi(
   createRoute({
     method: "get",
-    path:  "/api/friends/requests",
+    path:  "/api/friends/request/{friendId}/retrieve",
     request:{
       headers: z.object({
         authorization: z.string(),
@@ -1278,11 +1306,11 @@ app.openapi(
         .where("friendstatus", "=", "pending")
         .where((qb)=>
         qb.or([
-          qb("user1", "=", userId),
-          qb("user2", "=", userId),
+          qb("user1", "=", userId ?? ""),
+          qb("user2", "=", userId ?? ""),
         ])
         )
-        .where("requested_by", "<>", userId)
+        .where("requested_by", "<>", userId ?? "")
         .execute();
        return c.json(rows, 200);
 
@@ -1303,7 +1331,7 @@ curl -X DELETE http://localhost:4001/api/friends/a33144c7-9368-4e15-b13f-8890c30
 app.openapi(
   createRoute({
     method: "delete",
-    path: "/api/friends/:friendId",
+    path: "/api/friends/request/{friendId}/delete",
     request: {
       headers:z.object({
         authorization: z.string().describe("Bearer token for authentication"),
@@ -1321,8 +1349,28 @@ app.openapi(
           },
         },
       },
+      400: { 
+        description: "friendstatus is pending",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
       401: { 
         description: "Unauthorized",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
+      403: { 
+        description: "only delete requests you sent",
         content: {
           "application/json": {
             schema: z.object({
@@ -1363,7 +1411,7 @@ app.openapi(
       }
       const tokenVerification = verifyToken(authHeader);
       if (!tokenVerification.valid || !tokenVerification.userId)  {
-        return c.json({ error: tokenVerification.error|| "Invalid token" }, 401);
+        return c.json({ error: tokenVerification.error || "Invalid token" }, 401);
       }
       const userId = tokenVerification.userId;
       console.log("User ID:", userId);
@@ -1373,7 +1421,11 @@ app.openapi(
       if (!result){
         return c.json({ error: "friend request not found" }, 404);
       }
-      return c.json(result, 200);
+      //return c.json(result, 200);
+      return c.json(
+        { success: true, message: "Friend request deleted successfully." },
+        200 as const
+      );
 
     }catch(err){
       console.error("Delete friend request error:", err);
@@ -1393,11 +1445,116 @@ app.openapi(
       if (errorMessage.includes("not found")) {
         return c.json({ error: errorMessage }, 404);
       }
+      return c.json({ error: "Internal server error" }, 500);
     }
   }
 );
 
+//delete the friend  (when request is declined or accepted)
+app.openapi(
+  createRoute({
+    method: "delete",
+    path: "/api/friends/{friendId}/delete",
+    request: {
+      headers:z.object({
+        authorization: z.string().describe("Bearer token for authentication"),
+      }),
+      params: z.object({
+        friendId: z.string().uuid(),//uuid type
+      }),
+    },
+    responses: {
+      200: { 
+        description: "friend deleted successfully",
+        content: {
+          "application/json": {
+            schema: z.object({ success: z.boolean(), message: z.string(), }),
+          },
+        },
+      },
+      400: { 
+        description: "friendstatus is pending ",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
+      401: { 
+        description: "Unauthorized",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
+      404: { 
+        description: "friend request not found",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
+      500: {
+        description: "Internal server error",
+        content: {
+          "application/json": {
+            schema: z.object({
+              error: z.string(),
+            }),
+          },
+        },
+      },
+    },
+    tags: ["friends"],
+    summary: "delete friend (friendstatus = accepted ot declined)"
+  }),
+  async(c) => {
+    try{
+      const authHeader = c.req.header("authorization");
+      if (!authHeader) {
+        return c.json({ error: "Authorization header is required" }, 401);
+      }
+      const tokenVerification = verifyToken(authHeader);
+      if (!tokenVerification.valid || !tokenVerification.userId)  {
+        return c.json({ error: tokenVerification.error || "Invalid token" }, 401);
+      }
+      const userId = tokenVerification.userId;
+      console.log("User ID:", userId);
+      const { friendId } = c.req.param();
+      console.log("Looking for friendId:", friendId);
+      const result = await deletefriend(friendId, userId)
+      if (!result){
+        return c.json({ error: "friend request not found" }, 404);
+      }
+      //return c.json(result, 200);
+      return c.json(
+        { success: true, message: "Friend deleted successfully." },
+        200 as const
+      );
 
+    }catch(err){
+      console.error("Delete friend request error:", err);
+    
+      // 根據錯誤訊息回傳適當的狀態碼和訊息
+      const errorMessage = (err as any)?.message || "Internal server error";
+      if (errorMessage.includes("pending")) {
+        return c.json({ error: errorMessage }, 400);
+      }
+      if (errorMessage.includes("not found")) {
+        return c.json({ error: errorMessage }, 404);
+      }
+      return c.json({ error: "Internal server error" }, 500);
+    }
+  }
+);
 
 
 };

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { friends } from "../../../../packages/infra/db/index.js";
+//import type { friends } from "../../../../packages/infra/db/index.js";
 
 export const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters long"),
@@ -24,7 +24,7 @@ export const userMeResponseSchema = z.object({
   username: z.string(), 
   displayname: z.string().nullable(),
   email: z.string().email("Invalid email address"),
-  password: z.string(),
+  //password: z.string(),
   isEmailVerified: z.boolean(),
   avatar: z.string().nullable(),   
   status: z.string(),

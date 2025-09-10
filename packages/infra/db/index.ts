@@ -1,5 +1,5 @@
 import { Kysely, SqliteDialect } from "kysely";
-import Database from "better-sqlite3";
+import  Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -78,6 +78,7 @@ export interface DatabaseSchema {
   tournament_participants: TournamentParticipant;
   tournament_matches: TournamentMatch;
   users: DatabaseUser;
+  friends: Friends;
 }
 
 
@@ -277,7 +278,22 @@ export const getUserByUsername = async (username: string): Promise<DatabaseUser 
     .selectAll()
     .where("username", "=", username)
     .executeTakeFirst();
-  return row ? normalizeUser(row) : null;
+
+  if (!user) return null;
+
+  return {
+    userid: user.userid,
+    username: user.username,
+    displayname: user.displayname,
+    email: user.email,
+    password: user.password,
+    isEmailVerified: user.isEmailVerified, // Already a boolean
+    createdAt: user.createdAt,
+    avatar: user.avatar,
+    status: user.status,
+    twoFactorSecret: user.twoFactorSecret,
+    twoFactorEnabled: user.twoFactorEnabled,
+  };
 };
 
 export const getUserById = async (userid: string): Promise<DatabaseUser | null> => {
@@ -313,5 +329,20 @@ export const getUserByEmail = async (
     .selectAll()
     .where("email", "=", email)
     .executeTakeFirst();
-  return row ? normalizeUser(row) : null;
+
+  if (!user) return null;
+
+  return {
+    userid: user.userid,
+    username: user.username,
+    displayname: user.displayname,
+    email: user.email,
+    password: user.password,            
+    isEmailVerified: user.isEmailVerified,
+    createdAt: user.createdAt,
+    avatar: user.avatar,
+    status: user.status,
+    twoFactorSecret: user.twoFactorSecret,
+    twoFactorEnabled: user.twoFactorEnabled,
+  };
 };
