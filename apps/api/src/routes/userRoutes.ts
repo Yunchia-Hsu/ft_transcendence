@@ -39,7 +39,7 @@ import jwt from 'jsonwebtoken';
 import { extractUserIdFromToken, verifyToken } from "../utils/auth.js"; // for get me 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getUserByUsername, getUserByEmail, db } from '../../../../packages/infra/db/index.js';
-//let JWT_SECRET = "key_for_test",// need to add to env.
+
 
 const userRoutes = (app: OpenAPIHono) => {
   
@@ -785,7 +785,8 @@ use command to test me router
     -d "{\"code\":\"......\"}"
 
   */
-  // activate 2FA
+ 
+  // activate 2FA  auth 確認身份用6位數字 確認裝置跟綁定的是否一樣
   app.openapi(
     createRoute({
       method: "post",
@@ -840,7 +841,7 @@ use command to test me router
     }
   );
 
-  // verify 2FA
+  // verify 2FA 確認６位數字跟產生 permanent jwt token 
   app.openapi(
     createRoute({
       method: "post",

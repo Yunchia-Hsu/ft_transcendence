@@ -76,7 +76,7 @@ export const loginUser = async (data: { username: string; password: string }) =>
  
 // 檢查是否啟用 2FA
 if (user.twoFactorEnabled) {
-  // 生成臨時 token
+  // create temp token
   const tempToken = jwt.sign(
     { userId: user.userid, temp: true },
     JWT_SECRET,
@@ -237,7 +237,7 @@ export const getCurrentUser = async (userid: string) => {
 
 
 
-// 設定 2FA
+// 設定 2FA ：generate QR to bind your device 
 export const setup2FA = async (userId: string) => {
   try {
     const user = await getUserById(userId);
