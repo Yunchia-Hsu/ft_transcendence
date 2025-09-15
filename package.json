@@ -17,6 +17,9 @@
     "rebuild": "docker compose down -v --rmi local --remove-orphans && docker compose build --no-cache && docker compose up -d"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/qrcode": "^1.5.5",
+    "@types/speakeasy": "^2.0.10",
     "@typescript-eslint/parser": "8.37.0",
     "prettier": "^3.6.2",
     "tsx": "^4.20.5",

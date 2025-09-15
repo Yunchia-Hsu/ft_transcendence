@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { JWT_SECRET } from '../config/jwt.js';
 import { Statement } from 'sqlite3';
-import speakeasy from 'speakeasy';
+import speakeasy from 'speakeasy' ;
 import QRCode from 'qrcode';
 import type { Friends } from "../../../../packages/infra/db/index.js";
 import { success } from 'zod';

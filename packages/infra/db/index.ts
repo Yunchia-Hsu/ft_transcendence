@@ -268,6 +268,7 @@ export const saveUserToDatabase = async (user: DatabaseUser): Promise<void> => {
       createdAt: user.createdAt,
       avatar: user.avatar,
       status: user.status,
+      twoFactorEnabled: user.twoFactorEnabled, // Ensure this property is included
     })
     .execute();
 };
@@ -318,31 +319,31 @@ export const getUserById = async (userid: string): Promise<DatabaseUser | null> 
     twoFactorSecret: user.twoFactorSecret,
     twoFactorEnabled: user.twoFactorEnabled,
   };
-  return row ? normalizeUser(row) : null;
+ // return row ? normalizeUser(row) : null;
 };
 
-export const getUserByEmail = async (
-  email: string
-): Promise<DatabaseUser | null> => {
-  const row = await db
-    .selectFrom("users")
-    .selectAll()
-    .where("email", "=", email)
-    .executeTakeFirst();
+// export const getUserByEmail = async (
+//   email: string
+// ): Promise<DatabaseUser | null> => {
+//   const row = await db
+//     .selectFrom("users")
+//     .selectAll()
+//     .where("email", "=", email)
+//     .executeTakeFirst();
 
-  if (!user) return null;
+//   if (!user) return null;
 
-  return {
-    userid: user.userid,
-    username: user.username,
-    displayname: user.displayname,
-    email: user.email,
-    password: user.password,            
-    isEmailVerified: user.isEmailVerified,
-    createdAt: user.createdAt,
-    avatar: user.avatar,
-    status: user.status,
-    twoFactorSecret: user.twoFactorSecret,
-    twoFactorEnabled: user.twoFactorEnabled,
-  };
-};
+//   return {
+//     userid: user.userid,
+//     username: user.username,
+//     displayname: user.displayname,
+//     email: user.email,
+//     password: user.password,            
+//     isEmailVerified: user.isEmailVerified,
+//     createdAt: user.createdAt,
+//     avatar: user.avatar,
+//     status: user.status,
+//     twoFactorSecret: user.twoFactorSecret,
+//     twoFactorEnabled: user.twoFactorEnabled,
+//   };
+// };

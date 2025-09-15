@@ -38,7 +38,7 @@ import type { JWTPayload } from "../utils/auth.js";
 import jwt from 'jsonwebtoken';
 import { extractUserIdFromToken, verifyToken } from "../utils/auth.js"; // for get me 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { getUserByUsername, getUserByEmail, db } from '../../../../packages/infra/db/index.js';
+import { getUserByUsername, db } from '../../../../packages/infra/db/index.js';
 
 
 const userRoutes = (app: OpenAPIHono) => {
