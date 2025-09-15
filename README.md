@@ -24,7 +24,7 @@ pnpm install
 ---
 
 ## Dev workflow
-
+Added a hiden file name .env in path apps/api, and the content is JWT_SECRET='secret'
 By default, `pnpm run dev` starts Docker (API + DB) and then runs everything **except** the API/infra locally (e.g., the frontend).
 Your root scripts:
 
