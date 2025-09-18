@@ -91,10 +91,10 @@ export default function PongCanvas() {
   // keyboard
   useEffect(() => {
     const keyMap: Record<string, { idx: 0 | 1; dir: Direction }> = {
-      w: { idx: 0, dir: 1 },
-      s: { idx: 0, dir: -1 },
-      ArrowUp: { idx: 1, dir: 1 },
-      ArrowDown: { idx: 1, dir: -1 },
+      w: { idx: 0, dir: -1 },
+      s: { idx: 0, dir: 1 },
+      ArrowUp: { idx: 1, dir: -1 },
+      ArrowDown: { idx: 1, dir: 1 },
     };
     const handle = (e: KeyboardEvent, pressed: boolean): void => {
       const m = keyMap[e.key];

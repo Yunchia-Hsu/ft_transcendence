@@ -5,7 +5,7 @@ export interface Vec {
 
 export interface State {
   ball: Vec;
-  vel: Vec; // units per second in 0..1 space
+  vel: Vec; // units per second in 0..1 space 球速
   paddles: [number, number]; // centers, 0..1
   score: [number, number];
 }
