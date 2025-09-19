@@ -40,12 +40,10 @@ export function update(
   speedFactor = 1
 ): TickEvent {
   // 1) move paddles
-  const paddleDelta = input[0] * BASE_SPEED * (STEP / 1000) * speedFactor;
-  s.paddles[0] = clamp01(s.paddles[0] + paddleDelta);
-  s.paddles[1] = clamp01(
-    s.paddles[1] + input[1] * BASE_SPEED * (STEP / 1000) * speedFactor
-  );
-
+  const paddleSpeed = BASE_SPEED * 2.0 * (STEP / 1000) * speedFactor; // 2倍paddle速度
+  
+  s.paddles[0] = clamp01(s.paddles[0] + input[0] * paddleSpeed);
+  s.paddles[1] = clamp01(s.paddles[1] + input[1] * paddleSpeed);
   // 2) move ball
   s.ball.x += s.vel.x * (STEP / 1000) * speedFactor;
   s.ball.y += s.vel.y * (STEP / 1000) * speedFactor;
@@ -55,17 +53,17 @@ export function update(
 
   // 3) bounce off top/bottom
   if (s.ball.y < 0) {
-    s.ball.y = 0;
-    s.vel.y *= -1;
+    s.ball.y = 0;        // 位置修正
+    s.vel.y *= -1;       // 速度鏡射
   }
   if (s.ball.y > 1) {
-    s.ball.y = 1;
-    s.vel.y *= -1;
+    s.ball.y = 1;        // 位置修正（你少了這行）
+    s.vel.y *= -1;       // 速度鏡射
   }
 
   // 4) paddle collisions
   if (s.ball.x < 0.03 && hit(s, 0)) {
-    s.ball.x = 0.03;
+    s.ball.x = 0.03;     // 建議和門檻一致
     s.vel.x *= -1;
     const off = (s.ball.y - s.paddles[0]) / (PADDLE_H / 2);
     s.vel.y = clampFloat(
@@ -98,7 +96,7 @@ export function update(
     goal = 0;
   }
 
-  return { paddleHit, goal };
+return { paddleHit, goal };
 }
 
 function hit(s: State, i: 0 | 1): boolean {
