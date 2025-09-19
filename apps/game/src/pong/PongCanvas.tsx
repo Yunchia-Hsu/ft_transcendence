@@ -12,7 +12,7 @@ const COLORS = {
   accent2: "#E4EFC7",
   text: "#E4EFC7",
 } as const;
-
+ 
 type Direction = -1 | 0 | 1;
 type InputTuple = [Direction, Direction];
 
@@ -28,6 +28,16 @@ interface Particle {
 }
 
 type ViewParams = { cssW: number; cssH: number; dpr: number; scale: number };
+
+function aiDirection(s: State): -1 | 0 | 1 {
+  const targetY = s.ball.y;      // 直接追球的 y
+  const myY = s.paddles[1];      // 右拍自己的 y
+  const dead = 0.02;             // 足夠接近就不動（防抖）
+  if (myY < targetY - dead) return +1;
+  if (myY > targetY + dead) return -1;
+  return 0;
+}
+
 
 export default function PongCanvas() {
   const canvas = useRef<HTMLCanvasElement | null>(null);
@@ -94,7 +104,7 @@ export default function PongCanvas() {
       w: { idx: 0, dir: -1 },
       s: { idx: 0, dir: 1 },
       ArrowUp: { idx: 1, dir: -1 },
-      ArrowDown: { idx: 1, dir: 1 },
+      ArrowDown: { idx: 1, dir: +1 },
     };
     const handle = (e: KeyboardEvent, pressed: boolean): void => {
       const m = keyMap[e.key];
@@ -133,7 +143,10 @@ export default function PongCanvas() {
       last = now;
 
       while (acc >= STEP) {
-        const ev = update(state, input.current);
+        const left = input.current[0];
+        const right = aiDirection(state);
+        const ev = update(state, [left, right]); // AI 
+       // const ev = update(state, input.current); // two players
 
         trail.current.push({ x: state.ball.x, y: state.ball.y });
         if (trail.current.length > 14) trail.current.shift();
@@ -161,7 +174,7 @@ export default function PongCanvas() {
         flash.current,
         view.current.scale
       );
-      animationFrameId.current = requestAnimationFrame(loop);
+      animationFrameId.current = requestAnimationFrame(loop);// 下一幀
     };
 
     animationFrameId.current = requestAnimationFrame(loop); // Start the game loop
@@ -215,9 +228,9 @@ function spawnHitParticles(
   side: 0 | 1
 ): void {
   const count = 16;
-  const baseVx = side === 0 ? 0.8 : -0.8;
+  const baseVx = side === 0 ? 0.8 : -0.8; // 往擊球反方向噴
   for (let i = 0; i < count; i += 1) {
-    const ang = ((Math.random() - 0.5) * Math.PI) / 2;
+    const ang = ((Math.random() - 0.5) * Math.PI) / 2; // 隨機角度
     const speed = 0.2 + Math.random() * 0.5;
     const vx = baseVx * speed + Math.cos(ang) * 0.1;
     const vy = Math.sin(ang) * 0.6 * speed;
@@ -233,7 +246,7 @@ function spawnHitParticles(
     });
   }
 }
-
+//每步推進粒子
 function stepParticles(arr: Particle[], dt: number): void {
   for (let i = arr.length - 1; i >= 0; i -= 1) {
     const p = arr[i];

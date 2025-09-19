@@ -5,7 +5,7 @@ export interface Vec {
 
 export interface State {
   ball: Vec;
-  vel: Vec; // units per second in 0..1 space 球速
+  vel: Vec; // units per second in 0..1 space
   paddles: [number, number]; // centers, 0..1
   score: [number, number];
 }
@@ -18,7 +18,7 @@ export interface TickEvent {
   goal: 0 | 1 | null;
 }
 
-const BASE_SPEED = 0.6; // base units/sec for ball & paddle
+const BASE_SPEED = 0.4; // base units/sec for ball & paddle
 const PADDLE_H = 0.2; // fraction of height
 export const STEP = 1000 / 60; // ms per physics tick
 
