@@ -228,6 +228,7 @@ export const getCurrentUser = async (userid: string) => {
       isEmailVerified: user.isEmailVerified,
       avatar: user.avatar,
       status: user.status || 'offline',
+      twoFactorEnabled: Boolean(user.twoFactorEnabled),
     };
   } catch (error) {
     console.error('Error getting current user:', error);
