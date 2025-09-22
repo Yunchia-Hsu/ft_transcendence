@@ -155,7 +155,7 @@ function toggleTree() {
 /**
  * ## wireUpTabs
  *
- * Wires up events on the sidebar tabe
+ * Wires up events on the sidebar tabs
  */
 function wireUpTabs() {
   var tabEl = document.getElementById('sidebar_switch');
