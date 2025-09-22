@@ -29,7 +29,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const { token, userId, twoFactorEnabled } = JSON.parse(stored);
         set({ token, userId, twoFactorEnabled: twoFactorEnabled ?? null });
-      } catch {}
+      } catch (e) {
+        console.error('Failed to parse auth data from localStorage:', e);
+      }
     }
   },
 
