@@ -187,7 +187,7 @@ function switchTab(tab) {
     // Ignore text nodes
     if (children[i].nodeType !== 1) continue;
 
-    // Figure out what tab pane this tab button corresponts to
+    // Figure out what tab pane this tab button corresponds to
     var t = children[i].className.replace(/\s.*$/, '');
     if (t === tab) {
       // Show the tab pane, select the tab button
