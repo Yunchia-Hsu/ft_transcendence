@@ -1,4 +1,3 @@
-// App.tsx
 import "./App.css";
 import PongCanvas from "./pong/PongCanvas";
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
@@ -9,6 +8,7 @@ import Enable2FA from './auth/Enable2FA';
 import { useAuthStore } from './auth/store';
 import { useEffect } from 'react';
 import Banner from './ui/Banner';
+import { useLang, LanguageCode } from './translations';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -19,26 +19,38 @@ function Protected({ children }: { children: React.ReactNode }) {
 }
 
 function NavBar() {
+  const { lang, setLang, t } = useLang();
   const token = useAuthStore((s) => s.token);
   const tfa = useAuthStore((s) => s.twoFactorEnabled);
   const logout = useAuthStore((s) => s.logout);
   return (
     <div className="w-full flex items-center justify-between p-3 bg-gray-100">
       <div className="flex items-center gap-3">
-        <Link to="/" className="font-semibold">Pong</Link>
+        <Link to="/" className="font-semibold">{t.nav.appName}</Link>
         {token && !tfa && (
-          <Link to="/enable-2fa" className="text-sm text-blue-700">Enable 2FA</Link>
+          <Link to="/enable-2fa" className="text-sm text-blue-700">{t.nav.enable2fa}</Link>
         )}
       </div>
       <div className="text-sm">
-        {token ? (
-          <button onClick={logout} className="px-3 py-1 bg-gray-200 rounded">Logout</button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Link to="/login" className="px-3 py-1 bg-blue-600 text-white rounded">Login</Link>
-            <Link to="/register" className="px-3 py-1 bg-gray-200 rounded">Register</Link>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value as LanguageCode)}
+            className="px-2 py-1 border rounded"
+          >
+            <option value="en">EN</option>
+            <option value="ru">RU</option>
+            <option value="zh">中文</option>
+          </select>
+          {token ? (
+            <button onClick={logout} className="px-3 py-1 bg-gray-200 rounded">{t.nav.logout}</button>
+          ) : (
+            <>
+              <Link to="/login" className="px-3 py-1 bg-blue-600 text-white rounded">{t.nav.login}</Link>
+              <Link to="/register" className="px-3 py-1 bg-gray-200 rounded">{t.nav.register}</Link>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

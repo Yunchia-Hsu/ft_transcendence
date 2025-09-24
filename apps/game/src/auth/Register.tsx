@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store';
 import { useUiStore } from '../ui/store';
+import { useTranslations, useErrorTranslator } from '../translations';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -9,6 +10,8 @@ export default function Register() {
   const showBanner = useUiStore((s) => s.showBanner);
   const loading = useAuthStore((s) => s.loading);
   const error = useAuthStore((s) => s.error);
+  const t = useTranslations();
+  const translateError = useErrorTranslator();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,18 +19,18 @@ export default function Register() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     await register({ username, email, password });
-    showBanner('Registration successful. Please log in.', 'success');
+    showBanner(t.auth.banners.registrationSuccess, 'success');
     navigate('/login');
   }
 
   return (
     <div className="container-page">
       <div className="card">
-        <h1 className="text-xl font-semibold mb-4">Register</h1>
-        {error && <div className="text-error mb-3">{error}</div>}
+        <h1 className="text-xl font-semibold mb-4">{t.auth.titles.register}</h1>
+        {error && <div className="text-error mb-3">{translateError(error)}</div>}
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <label className="block text-sm mb-1">Username</label>
+            <label className="block text-sm mb-1">{t.auth.labels.username}</label>
             <input
               className="input"
               value={username}
@@ -36,7 +39,7 @@ export default function Register() {
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">Email</label>
+            <label className="block text-sm mb-1">{t.auth.labels.email}</label>
             <input
               type="email"
               className="input"
@@ -46,7 +49,7 @@ export default function Register() {
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">Password</label>
+            <label className="block text-sm mb-1">{t.auth.labels.password}</label>
             <input
               type="password"
               className="input"
@@ -56,11 +59,11 @@ export default function Register() {
             />
           </div>
           <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-            {loading ? 'Creating account...' : 'Create account'}
+            {loading ? t.auth.actions.creatingAccount : t.auth.actions.createAccount}
           </button>
         </form>
         <div className="text-sm mt-3">
-          Have an account? <Link className="text-blue-600" to="/login">Login</Link>
+          {t.auth.links.haveAccount} <Link className="text-blue-600" to="/login">{t.auth.links.login}</Link>
         </div>
       </div>
     </div>

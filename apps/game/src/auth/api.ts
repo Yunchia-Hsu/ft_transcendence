@@ -12,11 +12,36 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    let message = 'Request failed';
+    let message = `Request failed (${res.status})`;
     try {
       const data = await res.json();
-      message = data?.error || message;
-    } catch {}
+      
+      // Server returns {success: false, error: {message: "JSON_STRING", name: "ZodError"}}
+      if (data.error && data.error.message) {
+        try {
+          // The error.message is a JSON string containing the validation errors
+          const validationErrors = JSON.parse(data.error.message);
+          if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+            const firstError = validationErrors[0];
+            if (firstError && firstError.message) {
+              message = firstError.message;
+            }
+          }
+        } catch (parseError) {
+          // If parsing fails, use the raw message
+          message = data.error.message;
+        }
+      } else if (typeof data.message === 'string') {
+        message = data.message;
+      } else if (typeof data.error === 'string') {
+        message = data.error;
+      }
+    } catch {
+      try {
+        const text = await res.text();
+        if (text) message = text;
+      } catch {}
+    }
     throw new Error(message);
   }
   return (await res.json()) as T;

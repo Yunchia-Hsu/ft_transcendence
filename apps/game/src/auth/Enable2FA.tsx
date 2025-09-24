@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store';
 import { AuthApi } from './api';
+import { useTranslations, useErrorTranslator } from '../translations';
 
 export default function Enable2FA() {
+  const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
+  const t = useTranslations();
+  const translateError = useErrorTranslator();
   const [qr, setQr] = useState<string | null>(null);
   const [manual, setManual] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -33,8 +38,10 @@ export default function Enable2FA() {
     try {
       if (!token) throw new Error('Not authenticated');
       await AuthApi.activate2fa(token, code);
-      setMessage('Two-factor authentication enabled');
+      setMessage(t.auth.banners.twoFactorEnabled);
       setError(null);
+      // Redirect to game after successful 2FA activation
+      setTimeout(() => navigate('/'), 1500); // Short delay to show success message
     } catch (e: any) {
       setError(e?.message || 'Failed to activate 2FA');
     }
@@ -43,22 +50,22 @@ export default function Enable2FA() {
   return (
     <div className="container-page">
       <div className="card">
-        <h1 className="text-xl font-semibold">Enable Two-Factor Authentication</h1>
-        {error && <div className="text-error">{error}</div>}
+        <h1 className="text-xl font-semibold">{t.auth.titles.enable2fa}</h1>
+        {error && <div className="text-error">{translateError(error)}</div>}
         {message && <div className="text-success">{message}</div>}
         <div className="flex flex-col items-center gap-2">
           {qr ? (
             <>
               <img src={qr} alt="2FA QR" className="qr" />
-              {manual && <div className="muted">Manual key: {manual}</div>}
+              {manual && <div className="muted">{t.auth.labels.manualKey}: {manual}</div>}
             </>
           ) : (
-            <div className="muted">Loading QR...</div>
+            <div className="muted">{t.auth.labels.loadingQR}</div>
           )}
         </div>
         <form onSubmit={onActivate} className="space-y-3">
           <div>
-            <label className="block text-sm mb-1">Enter 6-digit code</label>
+            <label className="block text-sm mb-1">{t.auth.labels.code}</label>
             <input
               inputMode="numeric"
               pattern="[0-9]*"
@@ -70,7 +77,7 @@ export default function Enable2FA() {
             />
           </div>
           <button className="btn btn-primary w-full" disabled={!qr || code.length !== 6}>
-            Activate 2FA
+            {t.auth.actions.activate2fa}
           </button>
         </form>
       </div>
