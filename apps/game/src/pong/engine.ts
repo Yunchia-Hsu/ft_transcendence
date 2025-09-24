@@ -57,13 +57,13 @@ export function update(
     s.vel.y *= -1;       // 速度鏡射
   }
   if (s.ball.y > 1) {
-    s.ball.y = 1;        // 位置修正（你少了這行）
+    s.ball.y = 1;        
     s.vel.y *= -1;       // 速度鏡射
   }
 
   // 4) paddle collisions
   if (s.ball.x < 0.03 && hit(s, 0)) {
-    s.ball.x = 0.03;     // 建議和門檻一致
+    s.ball.x = 0.03;     
     s.vel.x *= -1;
     const off = (s.ball.y - s.paddles[0]) / (PADDLE_H / 2);
     s.vel.y = clampFloat(

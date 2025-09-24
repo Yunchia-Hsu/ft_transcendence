@@ -462,6 +462,16 @@ interface AIDecision {
   usePowerUp: boolean;
   confidence: number;
 }
+  //test AI
+  function simpleAI(s: State): -1 | 0 | 1 {
+    const ballY = s.ball.y;
+    const paddleY = s.paddles[1];
+    const DEAD = 0.02; // 場高 2% 的容忍
+  
+    if (paddleY < ballY - DEAD) return +1; // 往下
+    if (paddleY > ballY + DEAD) return -1; // 往上
+    return 0;                               // 落在死區就不動，防抖
+  }
 
 // 簡化的 AI 類 - 如果 AIOpponent 文件不存在
 class SimplePongAI {
@@ -675,7 +685,8 @@ export default function PongCanvas() {
 
       while (acc >= STEP) {
         let leftInput = input.current[0];
-        let rightInput: Direction;
+        let rightInput= simpleAI(state);
+        // let rightInput: Direction;
         
         if (gameMode === 'ai') {
           rightInput = processAIInput(now);

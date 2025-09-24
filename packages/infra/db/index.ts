@@ -81,7 +81,6 @@ export interface DatabaseSchema {
   friends: Friends;
 }
 
-
 export interface DatabaseUser {    
   userid: string;
   username: string;
@@ -104,15 +103,6 @@ export interface Friends{
   requested_by: string;
 }
 
-// ----- Create DB function -----
-// export const createDb = (): Kysely<DatabaseSchema> => {
-//   const db = new Kysely<DatabaseSchema>({
-//     dialect: new SqliteDialect({
-//       database: new Database(dbPath),
-//     }),
-//   });
-//   return db;
-// };
 export const createDb = (): Kysely<DatabaseSchema> => {
   const sqlite = new Database(dbPath);
   sqlite.pragma("journal_mode = WAL");
