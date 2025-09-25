@@ -286,7 +286,6 @@ function render(
     const alpha = t * 0.6;
     ctx.fillStyle = rgbaHex(COLORS.accent2, alpha);
     const pos = trail[i];
-    if (!pos) continue;
     ctx.beginPath();
     ctx.arc(pos.x * w, pos.y * h, 6 * t + 2, 0, Math.PI * 2);
     ctx.fill();
