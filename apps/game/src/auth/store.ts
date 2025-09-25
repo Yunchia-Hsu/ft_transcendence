@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { AuthApi, LoginResponse } from './api';
 
+type UserProfile = {
+  id: string;
+  username: string;
+  displayname: string | null;
+  email: string;
+  avatar: string | null;
+  status: string;
+  twoFactorEnabled: boolean;
+};
+
 type AuthState = {
   token: string | null;
   userId: string | null;
@@ -8,11 +18,14 @@ type AuthState = {
   loading: boolean;
   error: string | null;
   twoFactorEnabled: boolean | null;
+  userProfile: UserProfile | null;
   init: () => void;
   logout: () => void;
   register: (input: { username: string; email: string; password: string }) => Promise<void>;
   login: (input: { username: string; password: string }) => Promise<'ok' | '2fa'>;
   verify2fa: (code: string) => Promise<void>;
+  fetchUserProfile: () => Promise<void>;
+  updateUserProfile: (data: { username: string; displayname: string | null; avatar?: string | null }) => Promise<void>;
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -22,6 +35,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: false,
   error: null,
   twoFactorEnabled: null,
+  userProfile: null,
 
   init() {
     const stored = localStorage.getItem('auth');
@@ -37,7 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout() {
     localStorage.removeItem('auth');
-    set({ token: null, userId: null, tempToken: null });
+    set({ token: null, userId: null, tempToken: null, userProfile: null });
     // no redirect here; route components handle it
   },
 
@@ -89,6 +103,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ token, userId, tempToken: null, twoFactorEnabled: true });
     } catch (e: any) {
       set({ error: e?.message || '2FA verification failed' });
+      throw e;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async fetchUserProfile() {
+    const { token } = get();
+    if (!token) return;
+    
+    set({ loading: true, error: null });
+    try {
+      const profile = await AuthApi.me(token) as UserProfile;
+      set({ userProfile: profile });
+    } catch (e: any) {
+      set({ error: e?.message || 'Failed to fetch profile' });
+      throw e;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async updateUserProfile(data) {
+    const { token, userId } = get();
+    if (!token || !userId) throw new Error('Not authenticated');
+    
+    set({ loading: true, error: null });
+    try {
+      const updatedProfile = await AuthApi.updateProfile(token, userId, data);
+      // Fetch the complete profile to get all fields
+      await get().fetchUserProfile();
+    } catch (e: any) {
+      set({ error: e?.message || 'Failed to update profile' });
       throw e;
     } finally {
       set({ loading: false });

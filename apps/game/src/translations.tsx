@@ -8,6 +8,7 @@ type NavStrings = {
   login: string;
   register: string;
   appName: string;
+  profile: string;
 };
 
 type AuthStrings = {
@@ -70,10 +71,38 @@ type GameStrings = {
   };
 };
 
+type ProfileStrings = {
+  title: string;
+  labels: {
+    username: string;
+    displayName: string;
+    avatar: string;
+    avatarUrl: string;
+    email: string;
+  };
+  actions: {
+    save: string;
+    saving: string;
+    cancel: string;
+    edit: string;
+  };
+  messages: {
+    saveSuccess: string;
+    saveError: string;
+  };
+  placeholders: {
+    noAvatarUrl: string;
+    notSet: string;
+    avatarUrlInput: string;
+    displayNameInput: string;
+  };
+};
+
 export type Translations = {
   nav: NavStrings;
   auth: AuthStrings;
   game: GameStrings;
+  profile: ProfileStrings;
 };
 
 const TRANSLATIONS: Record<LanguageCode, Translations> = {
@@ -84,6 +113,7 @@ const TRANSLATIONS: Record<LanguageCode, Translations> = {
       login: 'Login',
       register: 'Register',
       appName: 'Pong',
+      profile: 'Profile',
     },
     auth: {
       titles: {
@@ -140,6 +170,32 @@ const TRANSLATIONS: Record<LanguageCode, Translations> = {
         stop: 'Stop the Madness!',
       },
     },
+    profile: {
+      title: 'Profile Settings',
+      labels: {
+        username: 'Username',
+        displayName: 'Display Name',
+        avatar: 'Avatar',
+        avatarUrl: 'Avatar URL',
+        email: 'Email',
+      },
+      actions: {
+        save: 'Save Changes',
+        saving: 'Saving...',
+        cancel: 'Cancel',
+        edit: 'Edit',
+      },
+      messages: {
+        saveSuccess: 'Profile updated successfully',
+        saveError: 'Failed to update profile',
+      },
+      placeholders: {
+        noAvatarUrl: 'No avatar URL set',
+        notSet: 'Not set',
+        avatarUrlInput: 'https://example.com/avatar.jpg',
+        displayNameInput: 'Enter display name (optional)',
+      },
+    },
   },
   ru: {
     nav: {
@@ -148,6 +204,7 @@ const TRANSLATIONS: Record<LanguageCode, Translations> = {
       login: 'Войти',
       register: 'Регистрация',
       appName: 'Понг',
+      profile: 'Профиль',
     },
     auth: {
       titles: {
@@ -204,6 +261,32 @@ const TRANSLATIONS: Record<LanguageCode, Translations> = {
         stop: 'Остановить безумие!',
       },
     },
+    profile: {
+      title: 'Настройки профиля',
+      labels: {
+        username: 'Имя пользователя',
+        displayName: 'Отображаемое имя',
+        avatar: 'Аватар',
+        avatarUrl: 'URL аватара',
+        email: 'Электронная почта',
+      },
+      actions: {
+        save: 'Сохранить изменения',
+        saving: 'Сохранение...',
+        cancel: 'Отмена',
+        edit: 'Редактировать',
+      },
+      messages: {
+        saveSuccess: 'Профиль успешно обновлен',
+        saveError: 'Не удалось обновить профиль',
+      },
+      placeholders: {
+        noAvatarUrl: 'URL аватара не установлен',
+        notSet: 'Не установлено',
+        avatarUrlInput: 'https://example.com/avatar.jpg',
+        displayNameInput: 'Введите отображаемое имя (необязательно)',
+      },
+    },
   },
   zh: {
     nav: {
@@ -212,6 +295,7 @@ const TRANSLATIONS: Record<LanguageCode, Translations> = {
       login: '登录',
       register: '注册',
       appName: '乒乓',
+      profile: '个人资料',
     },
     auth: {
       titles: {
@@ -266,6 +350,32 @@ const TRANSLATIONS: Record<LanguageCode, Translations> = {
       buttons: {
         start: '开始混战！',
         stop: '停止疯狂！',
+      },
+    },
+    profile: {
+      title: '个人资料设置',
+      labels: {
+        username: '用户名',
+        displayName: '显示名称',
+        avatar: '头像',
+        avatarUrl: '头像链接',
+        email: '电子邮箱',
+      },
+      actions: {
+        save: '保存更改',
+        saving: '保存中...',
+        cancel: '取消',
+        edit: '编辑',
+      },
+      messages: {
+        saveSuccess: '个人资料更新成功',
+        saveError: '个人资料更新失败',
+      },
+      placeholders: {
+        noAvatarUrl: '未设置头像链接',
+        notSet: '未设置',
+        avatarUrlInput: 'https://example.com/avatar.jpg',
+        displayNameInput: '输入显示名称（可选）',
       },
     },
   },

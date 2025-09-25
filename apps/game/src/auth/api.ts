@@ -90,6 +90,14 @@ export const AuthApi = {
       body: JSON.stringify({ code }),
     });
   },
+
+  updateProfile(token: string, userId: string, data: { username: string; displayname: string | null; avatar?: string | null }) {
+    return request<{ userId: string; username: string; displayname: string | null; avatar?: string | null }>(`/api/auth/users/${userId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 

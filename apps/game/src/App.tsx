@@ -5,6 +5,7 @@ import Login from './auth/Login';
 import Register from './auth/Register';
 import TwoFactor from './auth/TwoFactor';
 import Enable2FA from './auth/Enable2FA';
+import { Profile } from './profile';
 import { useAuthStore } from './auth/store';
 import { useEffect } from 'react';
 import Banner from './ui/Banner';
@@ -27,8 +28,13 @@ function NavBar() {
     <div className="w-full flex items-center justify-between p-3 bg-gray-100">
       <div className="flex items-center gap-3">
         <Link to="/" className="font-semibold">{t.nav.appName}</Link>
-        {token && !tfa && (
-          <Link to="/enable-2fa" className="text-sm text-blue-700">{t.nav.enable2fa}</Link>
+        {token && (
+          <>
+            <Link to="/profile" className="text-sm text-blue-700">{t.nav.profile}</Link>
+            {!tfa && (
+              <Link to="/enable-2fa" className="text-sm text-blue-700">{t.nav.enable2fa}</Link>
+            )}
+          </>
         )}
       </div>
       <div className="text-sm">
@@ -81,6 +87,14 @@ export default function App() {
           element={
             <Protected>
               <Enable2FA />
+            </Protected>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <Protected>
+              <Profile />
             </Protected>
           }
         />
