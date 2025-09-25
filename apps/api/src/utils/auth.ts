@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config/jwt.js';
 
 
 // define JWT payload interface定義 JWT 解碼後的結構
@@ -25,12 +26,11 @@ export const extractUserIdFromToken = (authHeader: string) => {
       token = authHeader;
     }
 
-    const jwtSecret = 'secret';
-    console.log('jwtsecret: ', jwtSecret);
-    if (!jwtSecret) {
+    console.log('jwtsecret: ', JWT_SECRET);
+    if (!JWT_SECRET) {
       throw new Error('JWT_SECRET is not defined in environment variables');
     }
-    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     if (!decoded.userId) {
         throw new Error('Token does not contain userId');
     }
@@ -58,7 +58,7 @@ export function verifyToken(authHeader: string): TokenVerificationResult {
       ? authHeader.slice(7)
       : authHeader;
 
-    const decoded = jwt.verify(token, 'secret') as { userId: string };//JWT_SECRET
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
     //console.log("[DELETE /users/:userId] header =", token);
 
     return {
