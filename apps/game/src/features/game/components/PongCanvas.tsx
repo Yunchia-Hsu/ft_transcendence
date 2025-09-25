@@ -239,7 +239,6 @@ function spawnHitParticles(
 function stepParticles(arr: Particle[], dt: number): void {
   for (let i = arr.length - 1; i >= 0; i -= 1) {
     const p = arr[i];
-    if (!p) continue;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.vy += 0.3 * dt;
