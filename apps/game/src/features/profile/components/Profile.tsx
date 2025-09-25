@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../auth/store';
-import { useLang } from '../translations';
-import { useUiStore } from '../ui/store';
+import { useAuthStore } from '../../auth/store/auth.store';
+import { useLang } from '../../../localization';
+import { useUiStore } from '../../../shared/store/ui.store';
 
 export default function Profile() {
   const { t } = useLang();

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { State, Vec } from "./engine";
-import { createState, update, STEP } from "./engine";
-import { useTranslations } from "../translations";
+import type { State, Vec } from "../engine/engine";
+import { createState, update, STEP } from "../engine/engine";
+import { useTranslations } from "../../../localization";
 
 const BASE_W = 960;
 const BASE_H = 640;

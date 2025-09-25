@@ -1,4 +1,4 @@
-import { useUiStore } from './store';
+import { useUiStore } from '../../store/ui.store';
 
 export default function Banner() {
   const banner = useUiStore((s) => s.banner);

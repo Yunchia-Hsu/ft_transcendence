@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuthStore } from './store';
-import { useUiStore } from '../ui/store';
-import { useTranslations, useErrorTranslator } from '../translations';
+import { useAuthStore } from '../store/auth.store';
+import { useUiStore } from '../../../shared/store/ui.store';
+import { useTranslations, useErrorTranslator } from '../../../localization';
 
 export default function Login() {
   const navigate = useNavigate();

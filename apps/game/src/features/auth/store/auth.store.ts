@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AuthApi, LoginResponse } from './api';
+import { AuthApi, LoginResponse } from '../services/auth.api';
 
 type UserProfile = {
   id: string;

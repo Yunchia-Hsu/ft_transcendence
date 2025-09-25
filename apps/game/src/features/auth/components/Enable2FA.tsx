@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from './store';
-import { AuthApi } from './api';
-import { useTranslations, useErrorTranslator } from '../translations';
+import { useAuthStore } from '../store/auth.store';
+import { AuthApi } from '../services/auth.api';
+import { useTranslations, useErrorTranslator } from '../../../localization';
 
 export default function Enable2FA() {
   const navigate = useNavigate();

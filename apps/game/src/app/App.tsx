@@ -1,15 +1,12 @@
 import "./App.css";
-import PongCanvas from "./pong/PongCanvas";
+import { PongCanvas } from '../features/game';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
-import Login from './auth/Login';
-import Register from './auth/Register';
-import TwoFactor from './auth/TwoFactor';
-import Enable2FA from './auth/Enable2FA';
-import { Profile } from './profile';
-import { useAuthStore } from './auth/store';
+import { Login, Register, TwoFactor, Enable2FA } from '../features/auth';
+import { Profile } from '../features/profile';
+import { useAuthStore } from '../features/auth/store/auth.store';
 import { useEffect } from 'react';
-import Banner from './ui/Banner';
-import { useLang, LanguageCode } from './translations';
+import { Banner } from '../shared/components/ui';
+import { useLang, LanguageCode } from '../localization';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
