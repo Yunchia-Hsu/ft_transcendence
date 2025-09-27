@@ -1,6 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { serve } from "@hono/node-server";
 import { swaggerUI } from "@hono/swagger-ui";
+import { cors } from 'hono/cors';
 import userRoutes from "./routes/userRoutes.js";
 import gameRoutes from "./routes/gameRoutes.js";
 import matchmakingRoutes from "./routes/matchmakingRoutes.js";
@@ -11,6 +12,7 @@ import { initDB } from "infra/db/index.js";
 import { config } from 'dotenv';
 import 'dotenv/config'
 const app = new OpenAPIHono();
+app.use('*', cors());
 await initDB();
 userRoutes(app);
 gameRoutes(app);

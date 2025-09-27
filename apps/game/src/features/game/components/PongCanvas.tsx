@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { State, Vec } from "./engine";
-import { createState, update, STEP } from "./engine";
+import type { State, Vec } from "../engine/engine";
+import { createState, update, STEP } from "../engine/engine";
+import { useTranslations } from "../../../localization";
 
 const BASE_W = 960;
 const BASE_H = 640;
@@ -30,6 +31,7 @@ interface Particle {
 type ViewParams = { cssW: number; cssH: number; dpr: number; scale: number };
 
 export default function PongCanvas() {
+  const t = useTranslations();
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const view = useRef<ViewParams>({
     cssW: BASE_W,
@@ -200,7 +202,7 @@ export default function PongCanvas() {
           fontWeight: "bold",
         }}
       >
-        {gameRunning ? "Stop the Madness!" : "Start the Chaos!"}
+        {gameRunning ? t.game.buttons.stop : t.game.buttons.start}
       </button>
     </div>
   );

@@ -145,35 +145,44 @@ export const getUserProfile = async (userid: string): Promise<DatabaseUser | nul
   return user;
 };
 
-export const updateUserProfile = async (userId: string, data: { username: string; displayname: string | null }) => {
+export const updateUserProfile = async (userId: string, data: { username: string; displayname: string | null; avatar?: string | null }) => {
   try {
-    const { username, displayname } = data;
+    const { username, displayname, avatar } = data;
+    
+    // Prepare update data
+    const updateData: { username: string; displayname: string | null; avatar?: string | null } = {
+      username: username,
+      displayname: displayname,
+    };
+    
+    // Only include avatar if it's provided
+    if (avatar !== undefined) {
+      updateData.avatar = avatar;
+    }
     
     // Update user in database
     await db
       .updateTable("users")
-      .set({
-        username: username,
-        displayname: displayname,
-      })
+      .set(updateData)
       .where("userid", "=", userId)
       .execute();
     
     // Fetch updated user
     const updatedUser = await db
       .selectFrom("users")
-      .select(["userid", "username", "displayname"])
+      .select(["userid", "username", "displayname", "avatar"])
       .where("userid", "=", userId)
       .executeTakeFirst();
     
     if (!updatedUser) {
-      throw new Error("Friend not found");
+      throw new Error("User not found");
     }
     
     return {
       userId: updatedUser.userid,
       username: updatedUser.username,
       displayname: updatedUser.displayname,
+      avatar: updatedUser.avatar,
     };
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -228,6 +237,7 @@ export const getCurrentUser = async (userid: string) => {
       isEmailVerified: user.isEmailVerified,
       avatar: user.avatar,
       status: user.status || 'offline',
+      twoFactorEnabled: Boolean(user.twoFactorEnabled),
     };
   } catch (error) {
     console.error('Error getting current user:', error);

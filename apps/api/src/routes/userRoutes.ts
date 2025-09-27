@@ -382,8 +382,8 @@ const userRoutes = (app: OpenAPIHono) => {
         }
   
         // 5. Update user profile
-        const { username, displayname } = result.data;
-        const updatedUser = await updateUserProfile(userId, { username, displayname });
+        const { username, displayname, avatar } = result.data;
+        const updatedUser = await updateUserProfile(userId, { username, displayname, avatar });
         
         if (!updatedUser) {
           return c.json({ error: "User not found" }, 404);
