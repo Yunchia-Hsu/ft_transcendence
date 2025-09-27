@@ -1,18 +1,15 @@
 import "./App.css";
-import { PongCanvas } from '../features/game';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
-import { Login, Register, TwoFactor, Enable2FA } from '../features/auth';
-import { Profile } from '../features/profile';
-import { useAuthStore } from '../features/auth/store/auth.store';
-import { useEffect } from 'react';
-import { Banner } from '../shared/components/ui';
-import { useLang, LanguageCode } from '../localization';
+import { PongCanvas } from "../features/game";
+import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
+import { Login, Register, TwoFactor, Enable2FA } from "../features/auth";
+import { Profile } from "../features/profile";
+import { useAuthStore } from "../features/auth/store/auth.store";
+import { Banner } from "../shared/components/ui";
+import { useLang, LanguageCode } from "../localization";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!token) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
@@ -21,15 +18,22 @@ function NavBar() {
   const token = useAuthStore((s) => s.token);
   const tfa = useAuthStore((s) => s.twoFactorEnabled);
   const logout = useAuthStore((s) => s.logout);
+
   return (
     <div className="w-full flex items-center justify-between p-3 bg-gray-100">
       <div className="flex items-center gap-3">
-        <Link to="/" className="font-semibold">{t.nav.appName}</Link>
+        <Link to="/" className="font-semibold">
+          {t.nav.appName}
+        </Link>
         {token && (
           <>
-            <Link to="/profile" className="text-sm text-blue-700">{t.nav.profile}</Link>
+            <Link to="/profile" className="text-sm text-blue-700">
+              {t.nav.profile}
+            </Link>
             {!tfa && (
-              <Link to="/enable-2fa" className="text-sm text-blue-700">{t.nav.enable2fa}</Link>
+              <Link to="/enable-2fa" className="text-sm text-blue-700">
+                {t.nav.enable2fa}
+              </Link>
             )}
           </>
         )}
@@ -46,11 +50,20 @@ function NavBar() {
             <option value="zh">中文</option>
           </select>
           {token ? (
-            <button onClick={logout} className="px-3 py-1 bg-gray-200 rounded">{t.nav.logout}</button>
+            <button onClick={logout} className="px-3 py-1 bg-gray-200 rounded">
+              {t.nav.logout}
+            </button>
           ) : (
             <>
-              <Link to="/login" className="px-3 py-1 bg-blue-600 text-white rounded">{t.nav.login}</Link>
-              <Link to="/register" className="px-3 py-1 bg-gray-200 rounded">{t.nav.register}</Link>
+              <Link
+                to="/login"
+                className="px-3 py-1 bg-blue-600 text-white rounded"
+              >
+                {t.nav.login}
+              </Link>
+              <Link to="/register" className="px-3 py-1 bg-gray-200 rounded">
+                {t.nav.register}
+              </Link>
             </>
           )}
         </div>
@@ -60,9 +73,10 @@ function NavBar() {
 }
 
 export default function App() {
-  const init = useAuthStore((s) => s.init);
-  useEffect(() => { init(); }, [init]);
-
+  // CHANGE: removed useEffect(init)
+  // Reason: auth.store now hydrates synchronously from localStorage on module load,
+  // so there’s no need to call init() to restore auth after refresh.
+  // This prevents a brief "logged out" flash on page reloads.
   return (
     <BrowserRouter>
       <Banner />
@@ -72,7 +86,9 @@ export default function App() {
           path="/"
           element={
             <Protected>
-              <div className="viewport"><PongCanvas /></div>
+              <div className="viewport">
+                <PongCanvas />
+              </div>
             </Protected>
           }
         />
