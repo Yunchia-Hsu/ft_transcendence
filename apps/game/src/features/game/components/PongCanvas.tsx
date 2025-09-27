@@ -239,7 +239,6 @@ function spawnHitParticles(
 function stepParticles(arr: Particle[], dt: number): void {
   for (let i = arr.length - 1; i >= 0; i -= 1) {
     const p = arr[i];
-    if (!p) continue;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.vy += 0.3 * dt;
@@ -287,7 +286,6 @@ function render(
     const alpha = t * 0.6;
     ctx.fillStyle = rgbaHex(COLORS.accent2, alpha);
     const pos = trail[i];
-    if (!pos) continue;
     ctx.beginPath();
     ctx.arc(pos.x * w, pos.y * h, 6 * t + 2, 0, Math.PI * 2);
     ctx.fill();
