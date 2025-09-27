@@ -24,6 +24,7 @@ export type Game = {
   player2: string;
   score: string;
   status: string;
+  winner_id: string | null;
 };
 
 // Tournaments

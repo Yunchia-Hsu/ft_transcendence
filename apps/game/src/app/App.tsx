@@ -6,6 +6,7 @@ import { Profile } from "../features/profile";
 import { useAuthStore } from "../features/auth/store/auth.store";
 import { Banner } from "../shared/components/ui";
 import { useLang, LanguageCode } from "../localization";
+import PlayPrompt from "@/features/game/pages/PlayPrompt";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -73,17 +74,25 @@ function NavBar() {
 }
 
 export default function App() {
-  // CHANGE: removed useEffect(init)
-  // Reason: auth.store now hydrates synchronously from localStorage on module load,
-  // so there’s no need to call init() to restore auth after refresh.
-  // This prevents a brief "logged out" flash on page reloads.
+  // CHANGE: removed useEffect(init). Auth store now hydrates synchronously from localStorage.
   return (
     <BrowserRouter>
       <Banner />
       <NavBar />
       <Routes>
+        {/* Home → funny prompt + Start button */}
         <Route
           path="/"
+          element={
+            <Protected>
+              <PlayPrompt />
+            </Protected>
+          }
+        />
+
+        {/* Game canvas (navigated to after start) */}
+        <Route
+          path="/game/:gameId"
           element={
             <Protected>
               <div className="viewport">
@@ -92,6 +101,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/2fa" element={<TwoFactor />} />

@@ -72,6 +72,7 @@ export const enqueue = async (
       player2: userId,
       score: "0-0",
       status: "In Progress",
+      winner_id: null,
     };
 
     await trx.insertInto("games").values(newGame).execute();
