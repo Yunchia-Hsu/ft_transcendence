@@ -12,6 +12,7 @@ import PlayPrompt from "@/features/game/pages/PlayPrompt";
 import { TournamentsList } from "@/features/tournaments/pages/TournamentsList";
 import { TournamentDetail } from "@/features/tournaments/pages/TournamentDetail";
 import { QuickPlay } from "@/features/tournaments/matchmaking/QuickPlay";
+import { FriendsPage } from "@/features/friends";
 import { UsersApi } from "@/shared/api/users";
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -38,19 +39,22 @@ function NavBar() {
             <Link to="/profile" className="text-sm text-blue-700">
               {t.nav.profile}
             </Link>
+            <Link to="/friends" className="text-sm text-blue-700">
+              {t.nav.friends}
+            </Link>
             {!tfa && (
               <Link to="/enable-2fa" className="text-sm text-blue-700">
                 {t.nav.enable2fa}
               </Link>
             )}
             <Link to="/quickplay" className="text-sm text-blue-700">
-              Quick Play
+              {t.nav.quickPlay}
             </Link>
           </>
         )}
 
         <Link to="/tournaments" className="text-sm text-blue-700">
-          Tournaments
+          {t.nav.tournaments}
         </Link>
       </div>
 
@@ -191,6 +195,16 @@ export default function App() {
           element={
             <Protected>
               <Profile />
+            </Protected>
+          }
+        />
+
+        {/* Friends */}
+        <Route
+          path="/friends"
+          element={
+            <Protected>
+              <FriendsPage />
             </Protected>
           }
         />

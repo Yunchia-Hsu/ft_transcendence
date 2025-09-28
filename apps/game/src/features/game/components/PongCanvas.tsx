@@ -291,8 +291,8 @@ export default function PongCanvas() {
       ? t.game.buttons.stop
       : t.game.buttons.start
     : completing
-      ? "Saving result…"
-      : "Start a new game";
+      ? t.game.mainMenu.savingResult
+      : t.game.mainMenu.startNewGame;
 
   const primaryDisabled = completing;
 

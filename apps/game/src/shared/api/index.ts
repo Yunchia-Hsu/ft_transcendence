@@ -7,3 +7,4 @@ export { AuthApi } from "./auth";
 export { GamesApi } from "./games";
 export { MatchmakingApi } from "./matchmaking";
 export { TournamentsApi } from "./tournaments";
+export { FriendsApi } from "./friends";

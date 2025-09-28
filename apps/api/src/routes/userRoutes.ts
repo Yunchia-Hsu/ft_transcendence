@@ -227,20 +227,44 @@ const userRoutes = (app: OpenAPIHono) => {
     }
   );
   
-// get all users
+// get all users (with optional search)
   app.openapi(
     createRoute({
       method: "get",
       path: "/api/auth/users",
+      request: {
+        query: z.object({
+          search: z.string().optional().describe("Search users by username"),
+        }),
+      },
       responses: {
         200: { description: "List of users" },
         404: { description: "No users found" },
       },
       tags: ["users"],
-      summary: "retrieve all users's info"
+      summary: "retrieve all users's info with optional search"
     }),
     async (c) => {
-      const users = await getAllUsers();
+      const { search } = c.req.query();
+      
+      let users;
+      if (search) {
+        // Search users by username
+        users = await db
+          .selectFrom("users")
+          .select([
+            "userid",
+            "username",
+            "displayname",
+            "avatar",
+          ])
+          .where("username", "like", `%${search}%`)
+          .execute();
+      } else {
+        // Get all users
+        users = await getAllUsers();
+      }
+      
       if (!users || users.length === 0) {
         return c.json({ error: "No users found" }, 404);
       }

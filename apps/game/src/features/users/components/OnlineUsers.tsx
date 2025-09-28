@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { UsersApi, OnlineUser } from "@/shared/api/users";
+import { useLang } from "@/localization";
 
 export function OnlineUsers({ className = "" }: { className?: string }) {
+  const { t } = useLang();
   const [users, setUsers] = useState<OnlineUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -14,7 +16,7 @@ export function OnlineUsers({ className = "" }: { className?: string }) {
       const data = await UsersApi.getOnline();
       setUsers(data);
     } catch (e) {
-      setErr("Failed to load online users");
+      setErr(t.game.onlineUsers.failedToLoad);
     } finally {
       setLoading(false);
     }
@@ -33,16 +35,16 @@ export function OnlineUsers({ className = "" }: { className?: string }) {
       className={`rounded-2xl border bg-white/70 backdrop-blur p-4 ${className}`}
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold">Online users</h3>
+        <h3 className="text-sm font-semibold">{t.game.onlineUsers.title}</h3>
         <span className="text-xs text-gray-500">{users.length}</span>
       </div>
 
       {loading && users.length === 0 ? (
-        <div className="text-xs text-gray-500">Loading…</div>
+        <div className="text-xs text-gray-500">{t.game.onlineUsers.loading}</div>
       ) : err ? (
         <div className="text-xs text-rose-600">{err}</div>
       ) : users.length === 0 ? (
-        <div className="text-xs text-gray-500">Nobody’s online… yet 👀</div>
+        <div className="text-xs text-gray-500">{t.game.onlineUsers.nobodyOnline}</div>
       ) : (
         <ul className="space-y-2">
           {users.map((u) => (
@@ -62,7 +64,7 @@ export function OnlineUsers({ className = "" }: { className?: string }) {
               </div>
               <div className="flex-1">
                 <div className="text-sm">{u.displayname ?? u.username}</div>
-                <div className="text-[10px] text-emerald-700">● online</div>
+                <div className="text-[10px] text-emerald-700">{t.game.onlineUsers.online}</div>
               </div>
             </li>
           ))}

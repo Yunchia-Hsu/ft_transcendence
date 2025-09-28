@@ -8,8 +8,10 @@ import type {
 } from "@/shared/api/types";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { Bracket } from "../components/Bracket";
+import { useLang } from "@/localization";
 
 export function TournamentDetail() {
+  const { t } = useLang();
   const { id } = useParams<{ id: string }>();
   const token = useAuthStore((s) => s.token);
   const userId = useAuthStore((s) => s.userId);
@@ -103,7 +105,7 @@ export function TournamentDetail() {
     }
   };
 
-  if (loading || !detail) return <div className="p-6">Loading…</div>;
+  if (loading || !detail) return <div className="p-6">{t.game.tournaments.loading}</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -111,8 +113,8 @@ export function TournamentDetail() {
         <div>
           <h1 className="text-2xl font-bold">{detail.name}</h1>
           <div className="text-sm text-gray-600">
-            Status: <span className="capitalize">{detail.status}</span> • Size:{" "}
-            {detail.size} • Rounds: {detail.rounds}
+            {t.game.tournaments.status} <span className="capitalize">{detail.status}</span> • {t.game.tournaments.size}:{" "}
+            {detail.size} • {t.game.tournaments.rounds} {detail.rounds}
           </div>
         </div>
         <div className="flex gap-2">
@@ -120,7 +122,7 @@ export function TournamentDetail() {
             onClick={() => void load()}
             className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
           >
-            Refresh
+            {t.game.tournaments.refresh}
           </button>
           {detail.status === "pending" ? (
             <>
@@ -128,21 +130,21 @@ export function TournamentDetail() {
                 className="border px-3 py-1 rounded"
                 value={nick}
                 onChange={(e) => setNick(e.target.value)}
-                placeholder="Nickname (optional)"
+                placeholder={t.game.tournaments.nicknameOptional}
               />
               <button
                 disabled={!canJoin || busy}
                 onClick={join}
                 className="px-3 py-1 bg-emerald-600 text-white rounded disabled:opacity-60"
               >
-                Join
+                {t.game.tournaments.join}
               </button>
               <button
                 disabled={!canLeave || busy}
                 onClick={leave}
                 className="px-3 py-1 bg-yellow-500 text-white rounded disabled:opacity-60"
               >
-                Leave
+                {t.game.tournaments.leave}
               </button>
               <button
                 disabled={!canStart || busy}
@@ -150,7 +152,7 @@ export function TournamentDetail() {
                 className="px-3 py-1 bg-indigo-600 text-white rounded disabled:opacity-60"
                 title="Owner can start; server enforces permission"
               >
-                Start
+                {t.game.tournaments.start}
               </button>
             </>
           ) : null}
