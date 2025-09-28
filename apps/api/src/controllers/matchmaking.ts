@@ -15,10 +15,10 @@ export const enqueue = async (
   mode: "1v1" = "1v1"
 ): Promise<EnqueueResult> => {
   return await db.transaction().execute(async (trx) => {
-    // Guard: active game?
+    // Guard: active game? (ignore self-vs-self)
     const active = await trx
       .selectFrom("games")
-      .select(["game_id", "status"])
+      .select(["game_id", "player1", "player2", "status"])
       .where((eb) =>
         eb.or([eb("player1", "=", userId), eb("player2", "=", userId)])
       )
@@ -26,7 +26,11 @@ export const enqueue = async (
       .executeTakeFirst();
 
     if (active) {
-      return { type: "ALREADY_IN_GAME" };
+      const isSelf = active.player1 === userId && active.player2 === userId;
+      if (!isSelf) {
+        return { type: "ALREADY_IN_GAME" };
+      }
+      // else: self game → ignore for matchmaking purposes
     }
 
     // Idempotent: already in queue?
@@ -112,7 +116,7 @@ export const getStatus = async (
   db: Kysely<DatabaseSchema>,
   userId: string
 ): Promise<StatusResult> => {
-  // 1) active game? (anything not 'Completed')
+  // 1) active game? (ignore self-vs-self)
   const active = await db
     .selectFrom("games")
     .select(["game_id", "player1", "player2", "status"])
@@ -120,17 +124,20 @@ export const getStatus = async (
       eb.or([eb("player1", "=", userId), eb("player2", "=", userId)])
     )
     .where("status", "!=", "Completed")
-    .orderBy("game_id", "desc")
     .executeTakeFirst();
 
   if (active) {
-    const opponentId =
-      active.player1 === userId ? active.player2 : active.player1;
-    return {
-      status: "matched",
-      matchId: active.game_id,
-      opponent: { userId: opponentId },
-    };
+    const isSelf = active.player1 === userId && active.player2 === userId;
+    if (!isSelf) {
+      const opponentId =
+        active.player1 === userId ? active.player2 : active.player1;
+      return {
+        status: "matched",
+        matchId: active.game_id,
+        opponent: { userId: opponentId },
+      };
+    }
+    // else: treat as not matched for Quick Play
   }
 
   // 2) queued?

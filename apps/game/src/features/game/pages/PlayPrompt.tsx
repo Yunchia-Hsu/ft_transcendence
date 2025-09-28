@@ -2,35 +2,48 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { GamesApi } from "@/shared/api";
+import { OnlineUsers } from "@/features/users/components/OnlineUsers";
 
 type StartError = { message?: string };
-
-const HAS_AI = false;
 
 export default function PlayPrompt() {
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.userId);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<"self" | "ai" | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const start = async () => {
+  const startSelf = async () => {
     if (!userId) return;
     setErr(null);
-    setLoading(true);
+    setLoading("self");
     try {
-      const opponentId = HAS_AI ? "bot" : userId;
-      const game = await GamesApi.start({
-        player1: userId,
-        player2: opponentId,
-      });
+      const game = await GamesApi.start({ player1: userId, player2: userId });
       navigate(`/game/${game.game_id}`);
     } catch (e: unknown) {
       const safe = e as StartError;
       setErr(safe.message ?? "Failed to start the game");
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
+
+  const startAI = async () => {
+    if (!userId) return;
+    setErr(null);
+    setLoading("ai");
+    try {
+      const game = await GamesApi.start({ player1: userId, player2: "bot" });
+      navigate(`/game/${game.game_id}`);
+    } catch (e: unknown) {
+      const safe = e as StartError;
+      setErr(safe.message ?? "Failed to start the AI game");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const toQuickPlay = () => navigate("/quickplay");
+  const toTournaments = () => navigate("/tournaments");
 
   return (
     <div
@@ -50,7 +63,7 @@ export default function PlayPrompt() {
 
       <div
         className="
-          relative w-full max-w-xl
+          relative w-full max-w-2xl
           rounded-2xl border border-white/60
           bg-white/70 backdrop-blur-md shadow-xl
         "
@@ -65,16 +78,19 @@ export default function PlayPrompt() {
           >
             No one cares if you win.
           </h1>
+
           {err && (
             <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-rose-700">
               {err}
             </div>
           )}
 
-          <div className="flex items-center justify-center">
+          {/* 4 actions */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* 🧍‍♂️ Play with yourself */}
             <button
-              onClick={start}
-              disabled={loading || !userId}
+              onClick={startSelf}
+              disabled={!userId || !!loading}
               className="
                 inline-flex items-center justify-center px-6 py-3 rounded-xl
                 bg-gradient-to-r from-fuchsia-600 via-rose-600 to-amber-500
@@ -83,10 +99,65 @@ export default function PlayPrompt() {
                 active:translate-y-[0px]
                 transition-all disabled:opacity-60
               "
-              aria-disabled={loading || !userId}
+              title="Start a local game (you vs you)"
             >
-              {loading ? "Starting…" : "Start the game"}
+              {loading === "self" ? "Starting…" : "🧍‍♂️ Play with yourself"}
             </button>
+
+            {/* 🎮 Quick play with opponent */}
+            <button
+              onClick={toQuickPlay}
+              className="
+                inline-flex items-center justify-center px-6 py-3 rounded-xl
+                bg-white/70 border border-fuchsia-200
+                text-fuchsia-700 font-semibold shadow
+                hover:bg-fuchsia-50 hover:border-fuchsia-300
+                hover:translate-y-[-2px]
+                active:translate-y-[0px]
+                transition-all
+              "
+              title="Find an opponent automatically"
+            >
+              🎮 Quick play with opponent
+            </button>
+
+            {/* 🏆 Tournaments */}
+            <button
+              onClick={toTournaments}
+              className="
+                inline-flex items-center justify-center px-6 py-3 rounded-xl
+                bg-white/70 border border-amber-200
+                text-amber-700 font-semibold shadow
+                hover:bg-amber-50 hover:border-amber-300
+                hover:translate-y-[-2px]
+                active:translate-y-[0px]
+                transition-all
+              "
+              title="Browse & join tournaments"
+            >
+              🏆 Tournaments
+            </button>
+
+            {/* 🤖 Play with AI opponent */}
+            <button
+              onClick={startAI}
+              disabled={!userId || !!loading}
+              className="
+                inline-flex items-center justify-center px-6 py-3 rounded-xl
+                bg-white/70 border border-emerald-200
+                text-emerald-700 font-semibold shadow
+                hover:bg-emerald-50 hover:border-emerald-300
+                hover:translate-y-[-2px]
+                active:translate-y-[0px]
+                transition-all disabled:opacity-60
+              "
+              title="Start a game vs AI"
+            >
+              {loading === "ai" ? "Starting…" : "🤖 Play with AI opponent"}
+            </button>
+          </div>
+          <div className="mt-6">
+            <OnlineUsers />
           </div>
         </div>
       </div>

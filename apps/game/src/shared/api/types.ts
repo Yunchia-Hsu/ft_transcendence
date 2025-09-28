@@ -28,8 +28,35 @@ export type Game = {
 };
 
 // Tournaments
+export type TournamentStatus = "pending" | "ongoing" | "completed";
+export type TournamentType = "single_elim";
+
 export type TournamentListItem = {
   id: string;
   name: string;
-  status: "pending" | "ongoing" | "completed";
+  status: TournamentStatus;
+};
+
+export type TournamentDetail = {
+  id: string;
+  name: string;
+  status: TournamentStatus;
+  size: number;
+  rounds: number;
+  participants: Array<{ userId: string; nickname: string }>;
+};
+
+export type BracketPlayer = { userId: string | null; nickname: string | null };
+export type BracketMatch = {
+  round: number;
+  matchIndex: number;
+  gameId: string | null;
+  p1: BracketPlayer;
+  p2: BracketPlayer;
+  winnerUserId: string | null;
+};
+export type BracketResponse = {
+  ok: true;
+  rounds: number;
+  matches: BracketMatch[];
 };
