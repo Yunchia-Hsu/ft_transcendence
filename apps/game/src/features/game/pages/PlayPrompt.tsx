@@ -105,7 +105,7 @@ export default function PlayPrompt() {
             </button>
 
             {/* 🎮 Quick play with opponent */}
-            <button
+            {/* <button
               onClick={toQuickPlay}
               className="
                 inline-flex items-center justify-center px-6 py-3 rounded-xl
@@ -119,7 +119,7 @@ export default function PlayPrompt() {
               title="Find an opponent automatically"
             >
               🎮 Quick play with opponent
-            </button>
+            </button> */}
 
             {/* 🏆 Tournaments */}
             <button

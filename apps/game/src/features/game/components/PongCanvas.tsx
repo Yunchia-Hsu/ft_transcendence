@@ -69,7 +69,14 @@ export default function PongCanvas() {
       if (!gameId) return;
       try {
         const g = await GamesApi.get(gameId);
-        if (alive) setOpponentId(g.player2 ?? null);
+        // ✅ pick the other player as the opponent
+        const other =
+          userId && g
+            ? g.player1 === userId
+              ? g.player2
+              : g.player1
+            : (g?.player2 ?? null);
+        if (alive) setOpponentId(other ?? null);
       } catch (e) {
         console.error("Failed to load game meta:", e);
       }
@@ -77,7 +84,7 @@ export default function PongCanvas() {
     return () => {
       alive = false;
     };
-  }, [gameId]);
+  }, [gameId, userId]);
 
   /* ---------- responsive sizing ---------- */
   useEffect(() => {

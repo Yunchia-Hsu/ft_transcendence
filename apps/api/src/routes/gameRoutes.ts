@@ -19,6 +19,12 @@ import {
   listGames,
   completeGame,
 } from "../controllers/games.js";
+import { maybeAdvanceTournamentFromGame } from "../controllers/tournaments-advance.js";
+import type { Game } from "infra/db/index.js";
+
+type Result =
+  | { ok: true; game: Game }
+  | { ok: false; code: "GAME_NOT_FOUND" | "ALREADY_COMPLETED" };
 
 const gameRoutes = (app: OpenAPIHono) => {
   // POST /api/games/start
@@ -208,6 +214,15 @@ const gameRoutes = (app: OpenAPIHono) => {
         if (!res.ok) {
           if (res.code === "GAME_NOT_FOUND") return c.json(res, 404);
           if (res.code === "ALREADY_COMPLETED") return c.json(res, 409);
+          // ensure we EXIT on all non-ok paths
+          return c.json({ ok: false, code: "SERVER_ERROR" as const }, 500);
+        }
+
+        // From here, res is { ok: true; game: Game }
+        try {
+          await maybeAdvanceTournamentFromGame(db, res.game);
+        } catch (e) {
+          console.error("[tournament propagate] failed:", e);
         }
 
         return c.json(res, 200);
