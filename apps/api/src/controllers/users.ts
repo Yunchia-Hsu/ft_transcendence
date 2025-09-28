@@ -389,14 +389,25 @@ export const updateUserStatus = async (
 export const getFriends = async (userId: string) => {
   const friends = await db
     .selectFrom("friends")
-    .select(["friendid", "user1", "user2"])
-    // .where((qb) =>
-    //   qb.where("user1", "=", userId).orWhere("user2", "=", userId)
-    // )
+    .leftJoin("users as u1", "friends.user1", "u1.userid")
+    .leftJoin("users as u2", "friends.user2", "u2.userid")
+    .select([
+      "friends.friendid",
+      "friends.user1",
+      "friends.user2",
+      "friends.friendstatus",
+      "friends.requested_by",
+      "u1.username as user1_username",
+      "u1.displayname as user1_displayname",
+      "u1.avatar as user1_avatar",
+      "u2.username as user2_username",
+      "u2.displayname as user2_displayname",
+      "u2.avatar as user2_avatar",
+    ])
     .where((eb) =>
       eb.or([
-        eb('user1', '=', userId),
-        eb('user2', '=', userId),
+        eb('friends.user1', '=', userId),
+        eb('friends.user2', '=', userId),
       ]))
     .execute();
   return friends;
@@ -501,7 +512,7 @@ export const RejectedFriendRequest = async(userId: string, requestId: string):Pr
   if (!existing) {
     throw new Error("request not found");
   }
-  if (existing.friendstatus !== "accepted")
+  if (existing.friendstatus !== "pending")
   {
     throw new Error("the friend request is not pending");
   }

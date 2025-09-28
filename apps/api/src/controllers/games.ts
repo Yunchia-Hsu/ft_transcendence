@@ -19,7 +19,18 @@ export const startGame = async (
     winner_id: null,
   };
 
-  await db.insertInto("games").values(newGame).execute();
+  // Create insert object without null values for SQLite compatibility
+  const insertData = {
+    game_id: newGame.game_id,
+    player1: newGame.player1,
+    player2: newGame.player2,
+    score: newGame.score,
+    status: newGame.status,
+    // Only include winner_id if it's not null
+    ...(newGame.winner_id && { winner_id: newGame.winner_id })
+  };
+
+  await db.insertInto("games").values(insertData).execute();
 
   return newGame;
 };

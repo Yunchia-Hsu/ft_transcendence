@@ -133,7 +133,7 @@ export const initDB = async (): Promise<void> => {
     .addColumn("player2", "text")
     .addColumn("score", "text")
     .addColumn("status", "text")
-    .addColumn("winner_id", "text")
+    .addColumn("winner_id", "text", (col) => col.defaultTo(null))
     .execute();
 
   await db.schema
@@ -222,6 +222,7 @@ export const initDB = async (): Promise<void> => {
     .on("tournament_matches")
     .columns(["tournament_id", "round"])
     .execute();
+
 
   console.log(
     "DB init ok: games, matchmaking_queue, tournaments, tournament_participants, tournament_matches, users"

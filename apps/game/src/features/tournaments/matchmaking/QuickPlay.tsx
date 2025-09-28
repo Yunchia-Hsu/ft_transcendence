@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MatchmakingApi } from "@/shared/api/matchmaking";
 import { useAuthStore } from "@/features/auth/store/auth.store";
+import { useLang } from "@/localization";
 
 type Phase = "idle" | "queueing" | "queued" | "error";
 
 export function QuickPlay() {
+  const { t } = useLang();
   const userId = useAuthStore((s) => s.userId);
   const navigate = useNavigate();
 
@@ -35,13 +37,13 @@ export function QuickPlay() {
           }
           if (mounted.current && phase !== "queued") {
             setPhase("queued");
-            setMessage("Waiting for an opponent…");
+            setMessage(t.game.quickPlay.waitingForOpponent);
           }
         })
         .catch(() => {
           if (mounted.current) {
             setPhase("error");
-            setMessage("Failed to check status.");
+            setMessage(t.game.quickPlay.failedToCheckStatus);
           }
         });
 
@@ -150,10 +152,9 @@ export function QuickPlay() {
 
   return (
     <div className="max-w-md mx-auto mt-6 p-4 border rounded-lg bg-white">
-      <h2 className="text-lg font-semibold mb-2">Quick Play</h2>
+      <h2 className="text-lg font-semibold mb-2">{t.game.quickPlay.title}</h2>
       <p className="text-sm text-gray-600 mb-4">
-        We’ll pair you with the next available player and jump right into a
-        game.
+        {t.game.quickPlay.description}
       </p>
 
       <div className="flex gap-2">
@@ -162,7 +163,7 @@ export function QuickPlay() {
           onClick={onQuickPlay}
           disabled={busy || queued}
         >
-          {busy ? "Joining…" : queued ? "Searching…" : "Find Opponent"}
+          {busy ? t.game.quickPlay.joining : queued ? t.game.quickPlay.searching : t.game.quickPlay.findOpponent}
         </button>
         {queued && (
           <button
@@ -170,7 +171,7 @@ export function QuickPlay() {
             onClick={onCancel}
             disabled={busy}
           >
-            Cancel
+            {t.game.quickPlay.cancel}
           </button>
         )}
       </div>

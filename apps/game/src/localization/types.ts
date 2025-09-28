@@ -7,6 +7,9 @@ export type NavStrings = {
   register: string;
   appName: string;
   profile: string;
+  friends: string;
+  quickPlay: string;
+  tournaments: string;
 };
 
 export type AuthStrings = {
@@ -67,6 +70,49 @@ export type GameStrings = {
     start: string;
     stop: string;
   };
+  mainMenu: {
+    title: string;
+    playWithYourself: string;
+    playWithAI: string;
+    tournaments: string;
+    starting: string;
+    savingResult: string;
+    startNewGame: string;
+  };
+  quickPlay: {
+    title: string;
+    description: string;
+    findOpponent: string;
+    joining: string;
+    searching: string;
+    cancel: string;
+    waitingForOpponent: string;
+    failedToCheckStatus: string;
+  };
+  tournaments: {
+    title: string;
+    createNew: string;
+    name: string;
+    size: string;
+    creating: string;
+    create: string;
+    loading: string;
+    noTournaments: string;
+    status: string;
+    rounds: string;
+    refresh: string;
+    nicknameOptional: string;
+    join: string;
+    leave: string;
+    start: string;
+  };
+  onlineUsers: {
+    title: string;
+    loading: string;
+    failedToLoad: string;
+    nobodyOnline: string;
+    online: string;
+  };
 };
 
 export type ProfileStrings = {
@@ -96,9 +142,78 @@ export type ProfileStrings = {
   };
 };
 
+export type FriendsStrings = {
+  title: string;
+  tabs: {
+    friends: string;
+    requests: string;
+    sent: string;
+    search: string;
+  };
+  actions: {
+    accept: string;
+    decline: string;
+    remove: string;
+    cancel: string;
+    addFriend: string;
+    search: string;
+    searching: string;
+  };
+  messages: {
+    requestSent: string;
+    requestAccepted: string;
+    requestRejected: string;
+    requestCancelled: string;
+    friendRemoved: string;
+    sendRequestFailed: string;
+    acceptRequestFailed: string;
+    rejectRequestFailed: string;
+    cancelRequestFailed: string;
+    removeFriendFailed: string;
+    searchFailed: string;
+  };
+  placeholders: {
+    searchUsers: string;
+  };
+  empty: {
+    noFriends: {
+      title: string;
+      description: string;
+    };
+    noPendingRequests: {
+      title: string;
+      description: string;
+    };
+    noSentRequests: {
+      title: string;
+      description: string;
+    };
+    noSearchResults: {
+      title: string;
+      description: string;
+    };
+    searchPrompt: {
+      title: string;
+      description: string;
+    };
+  };
+  confirmations: {
+    removeFriend: string;
+    cancelRequest: string;
+  };
+  status: {
+    friends: string;
+    pending: string;
+    friendsSince: string;
+    wantsToBeFriend: string;
+    requestSent: string;
+  };
+};
+
 export type Translations = {
   nav: NavStrings;
   auth: AuthStrings;
   game: GameStrings;
   profile: ProfileStrings;
+  friends: FriendsStrings;
 };

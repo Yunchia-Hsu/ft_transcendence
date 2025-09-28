@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { GamesApi } from "@/shared/api";
 import { OnlineUsers } from "@/features/users/components/OnlineUsers";
+import { useLang } from "@/localization";
 
 type StartError = { message?: string };
 
 export default function PlayPrompt() {
+  const { t } = useLang();
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.userId);
   const [loading, setLoading] = useState<"self" | "ai" | null>(null);
@@ -76,7 +78,7 @@ export default function PlayPrompt() {
               bg-gradient-to-r from-fuchsia-600 via-rose-600 to-amber-600
             "
           >
-            No one cares if you win.
+            {t.game.mainMenu.title}
           </h1>
 
           {err && (
@@ -101,7 +103,7 @@ export default function PlayPrompt() {
               "
               title="Start a local game (you vs you)"
             >
-              {loading === "self" ? "Starting…" : "🧍‍♂️ Play with yourself"}
+              {loading === "self" ? t.game.mainMenu.starting : t.game.mainMenu.playWithYourself}
             </button>
 
             {/* 🎮 Quick play with opponent */}
@@ -135,7 +137,7 @@ export default function PlayPrompt() {
               "
               title="Browse & join tournaments"
             >
-              🏆 Tournaments
+              {t.game.mainMenu.tournaments}
             </button>
 
             {/* 🤖 Play with AI opponent */}
@@ -153,7 +155,7 @@ export default function PlayPrompt() {
               "
               title="Start a game vs AI"
             >
-              {loading === "ai" ? "Starting…" : "🤖 Play with AI opponent"}
+              {loading === "ai" ? t.game.mainMenu.starting : t.game.mainMenu.playWithAI}
             </button>
           </div>
           <div className="mt-6">
