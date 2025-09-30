@@ -205,8 +205,58 @@ export type FriendsStrings = {
     friends: string;
     pending: string;
     friendsSince: string;
+    friendSinceToday: string;
     wantsToBeFriend: string;
+    searchResults: string;
     requestSent: string;
+  };
+};
+
+export type FriendsPageStrings = {
+  title: string;
+  refresh: string;
+  refreshing: string;
+  tabs: {
+    friends: string;
+    requests: string;
+    sent: string;
+    addFriends: string;
+  };
+};
+
+// Tournament page translations
+export type TournamentsPageStrings = {
+  title: string;
+  createNew: string;
+  name: string;
+  size: string;
+  creating: string;
+  create: string;
+  loading: string;
+  noTournaments: string;
+  placeholder: string;
+  open: string;
+  status: {
+    pending: string;
+    ongoing: string;
+    completed: string;
+    cancelled: string;
+  };
+  bracket: {
+    title: string;
+    noBracketYet: string;
+    round: string;
+    match: string;
+    openGame: string;
+    p1Wins: string;
+    p2Wins: string;
+    resultRecorded: string;
+    waitingForPlayers: string;
+    winner: string;
+  };
+  participants: {
+    title: string;
+    nobodyYet: string;
   };
 };
 
@@ -216,4 +266,6 @@ export type Translations = {
   game: GameStrings;
   profile: ProfileStrings;
   friends: FriendsStrings;
+  friendsPage: FriendsPageStrings;
+  tournamentsPage: TournamentsPageStrings;
 };

@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 import type { BracketMatch } from "@/shared/api/types";
 import { Link } from "react-router-dom";
+import { useLang } from "@/localization";
 
 type Props = {
   rounds: number;
@@ -19,6 +20,7 @@ export function Bracket({
   currentUserId,
   disabled,
 }: Props) {
+  const { t } = useLang();
   const cols = useMemo(() => {
     const bucket: Record<number, BracketMatch[]> = {};
     for (const m of matches) {
@@ -38,7 +40,7 @@ export function Bracket({
       >
         {Array.from({ length: rounds }, (_, i) => i + 1).map((r) => (
           <div key={r} className="space-y-4">
-            <h3 className="text-sm font-semibold text-gray-600">Round {r}</h3>
+            <h3 className="text-sm font-semibold text-gray-600">{t.tournamentsPage.bracket.round} {r}</h3>
             {(cols[r] ?? []).map((m) => (
               <MatchCard
                 key={`${m.round}-${m.matchIndex}`}
@@ -46,6 +48,7 @@ export function Bracket({
                 onReport={onReport}
                 currentUserId={currentUserId ?? null}
                 disabled={disabled}
+                t={t}
               />
             ))}
           </div>
@@ -60,11 +63,13 @@ function MatchCard({
   onReport,
   currentUserId,
   disabled,
+  t,
 }: {
   m: BracketMatch;
   onReport: (round: number, matchIndex: number, winnerUserId: string) => void;
   currentUserId: string | null;
   disabled?: boolean;
+  t: any; // Using any for simplicity, could be more specific
 }) {
   const winner = m.winnerUserId;
   const p1Id = m.p1.userId;
@@ -96,11 +101,11 @@ function MatchCard({
   return (
     <div className="border rounded-lg p-3 bg-white">
       <div className="text-xs text-gray-500 mb-2">
-        Match #{m.matchIndex + 1}
+        {t.tournamentsPage.bracket.match}{m.matchIndex + 1}
       </div>
 
-      <Row label={m.p1.nickname ?? "—"} active={p1Active} />
-      <Row label={m.p2.nickname ?? "—"} active={p2Active} />
+      <Row label={m.p1.nickname ?? "—"} active={p1Active} t={t} />
+      <Row label={m.p2.nickname ?? "—"} active={p2Active} t={t} />
 
       {m.gameId ? (
         <div className="mt-2">
@@ -108,7 +113,7 @@ function MatchCard({
             to={`/game/${m.gameId}`}
             className="text-xs inline-block px-2 py-1 bg-indigo-50 rounded border border-indigo-100 hover:bg-indigo-100"
           >
-            Open game
+            {t.tournamentsPage.bracket.openGame}
           </Link>
         </div>
       ) : null}
@@ -121,7 +126,7 @@ function MatchCard({
             disabled={!p1Id}
             title="Report P1 as winner"
           >
-            P1 wins
+            {t.tournamentsPage.bracket.p1Wins}
           </button>
           <button
             className="px-2 py-1 text-xs bg-emerald-600 text-white rounded disabled:opacity-60"
@@ -129,19 +134,19 @@ function MatchCard({
             disabled={!p2Id}
             title="Report P2 as winner"
           >
-            P2 wins
+            {t.tournamentsPage.bracket.p2Wins}
           </button>
         </div>
       ) : (
         <div className="mt-2 text-xs text-gray-500">
-          {winner ? "Result recorded" : "Waiting for players"}
+          {winner ? t.tournamentsPage.bracket.resultRecorded : t.tournamentsPage.bracket.waitingForPlayers}
         </div>
       )}
     </div>
   );
 }
 
-function Row({ label, active }: { label: string; active: boolean }) {
+function Row({ label, active, t }: { label: string; active: boolean; t: any }) {
   return (
     <div
       className={`flex items-center justify-between px-2 py-1 rounded mb-1 ${
@@ -153,7 +158,7 @@ function Row({ label, active }: { label: string; active: boolean }) {
       <span className="text-sm">{label}</span>
       {active ? (
         <span className="text-[10px] uppercase font-semibold text-emerald-700">
-          Winner
+{t.tournamentsPage.bracket.winner}
         </span>
       ) : null}
     </div>

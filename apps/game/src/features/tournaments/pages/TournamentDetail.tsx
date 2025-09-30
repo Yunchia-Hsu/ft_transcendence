@@ -16,6 +16,22 @@ export function TournamentDetail() {
   const token = useAuthStore((s) => s.token);
   const userId = useAuthStore((s) => s.userId);
 
+  // Helper function to translate tournament status
+  const getStatusTranslation = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return t.tournamentsPage.status.pending;
+      case 'ongoing':
+        return t.tournamentsPage.status.ongoing;
+      case 'completed':
+        return t.tournamentsPage.status.completed;
+      case 'cancelled':
+        return t.tournamentsPage.status.cancelled;
+      default:
+        return status; // fallback to original status if not found
+    }
+  };
+
   const [detail, setDetail] = useState<TDetail | null>(null);
   const [bracket, setBracket] = useState<BracketResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,7 +129,7 @@ export function TournamentDetail() {
         <div>
           <h1 className="text-2xl font-bold">{detail.name}</h1>
           <div className="text-sm text-gray-600">
-            {t.game.tournaments.status} <span className="capitalize">{detail.status}</span> • {t.game.tournaments.size}:{" "}
+            {t.game.tournaments.status} <span>{getStatusTranslation(detail.status)}</span> • {t.game.tournaments.size}:{" "}
             {detail.size} • {t.game.tournaments.rounds} {detail.rounds}
           </div>
         </div>
@@ -160,9 +176,9 @@ export function TournamentDetail() {
       </header>
 
       <section className="p-4 border rounded-lg">
-        <h2 className="font-semibold mb-3">Participants</h2>
+        <h2 className="font-semibold mb-3">{t.tournamentsPage.participants.title}</h2>
         {detail.participants.length === 0 ? (
-          <p className="text-gray-600">Nobody yet.</p>
+          <p className="text-gray-600">{t.tournamentsPage.participants.nobodyYet}</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
             {detail.participants.map((p) => (
@@ -178,9 +194,9 @@ export function TournamentDetail() {
       </section>
 
       <section className="p-4 border rounded-lg">
-        <h2 className="font-semibold mb-4">Bracket</h2>
+        <h2 className="font-semibold mb-4">{t.tournamentsPage.bracket.title}</h2>
         {!bracket ? (
-          <p className="text-gray-600">No bracket yet.</p>
+          <p className="text-gray-600">{t.tournamentsPage.bracket.noBracketYet}</p>
         ) : (
           <Bracket
             rounds={bracket.rounds}

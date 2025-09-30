@@ -4,12 +4,14 @@ import { Friend } from '@/shared/api/friends';
 import { useFriendsStore } from '../store/friends.store';
 import { useAuthStore } from '../../auth/store/auth.store';
 import { useUiStore } from '../../../shared/store/ui.store';
+import { useLang } from '../../../localization';
 
 interface FriendsListProps {
   friends: Friend[];
 }
 
 export default function FriendsList({ friends }: FriendsListProps) {
+  const { t } = useLang();
   const token = useAuthStore((s) => s.token);
   const userId = useAuthStore((s) => s.userId);
   const showBanner = useUiStore((s) => s.showBanner);
@@ -29,12 +31,12 @@ export default function FriendsList({ friends }: FriendsListProps) {
   const handleDeleteFriend = async (friendId: string) => {
     if (!token) return;
     
-    if (confirm('Are you sure you want to remove this friend?')) {
+    if (confirm(t.friends.confirmations.removeFriend)) {
       try {
         await deleteFriend(token, friendId);
-        showBanner('Friend removed successfully', 'success');
+        showBanner(t.friends.messages.friendRemoved, 'success');
       } catch (error) {
-        showBanner('Failed to remove friend', 'error');
+        showBanner(t.friends.messages.removeFriendFailed, 'error');
       }
     }
   };
@@ -47,8 +49,8 @@ export default function FriendsList({ friends }: FriendsListProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM9 9a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No friends yet</h3>
-        <p className="text-gray-500">Start by searching for users to add as friends!</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">{t.friends.empty.noFriends.title}</h3>
+        <p className="text-gray-500">{t.friends.empty.noFriends.description}</p>
       </div>
     );
   }
@@ -79,20 +81,20 @@ export default function FriendsList({ friends }: FriendsListProps) {
               <div>
                 <p className="font-medium text-gray-900">{displayName}</p>
                 <p className="text-sm text-gray-500">
-                  {friendInfo.username ? `@${friendInfo.username}` : 'Friend since today'}
+                  {friendInfo.username ? `@${friendInfo.username}` : t.friends.status.friendSinceToday}
                 </p>
               </div>
             </div>
             
             <div className="flex items-center space-x-2">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Friends
+{t.friends.status.friends}
               </span>
               <button
                 onClick={() => handleDeleteFriend(friend.friendid)}
                 className="text-red-600 hover:text-red-800 text-sm font-medium"
               >
-                Remove
+{t.friends.actions.remove}
               </button>
             </div>
           </div>

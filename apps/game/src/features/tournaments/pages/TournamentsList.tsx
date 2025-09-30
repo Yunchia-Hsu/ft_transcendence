@@ -3,10 +3,28 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { TournamentsApi } from "@/shared/api/tournaments";
 import { useAuthStore } from "@/features/auth/store/auth.store";
+import { useLang } from "@/localization";
 import type { TournamentListItem } from "@/shared/api/types";
 
 export function TournamentsList() {
+  const { t } = useLang();
   const token = useAuthStore((s) => s.token);
+
+  // Helper function to translate tournament status
+  const getStatusTranslation = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return t.tournamentsPage.status.pending;
+      case 'ongoing':
+        return t.tournamentsPage.status.ongoing;
+      case 'completed':
+        return t.tournamentsPage.status.completed;
+      case 'cancelled':
+        return t.tournamentsPage.status.cancelled;
+      default:
+        return status; // fallback to original status if not found
+    }
+  };
   const [items, setItems] = useState<TournamentListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -56,23 +74,23 @@ export function TournamentsList() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Tournaments</h1>
+      <h1 className="text-2xl font-bold mb-4">{t.tournamentsPage.title}</h1>
 
       {/* Create */}
       <div className="mb-8 p-4 border rounded-lg">
-        <h2 className="font-semibold mb-3">Create new</h2>
+        <h2 className="font-semibold mb-3">{t.tournamentsPage.createNew}</h2>
         <div className="flex flex-wrap gap-3 items-end">
           <div>
-            <label className="block text-sm mb-1">Name</label>
+            <label className="block text-sm mb-1">{t.tournamentsPage.name}</label>
             <input
               className="border px-3 py-2 rounded w-64"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Weekend Cup"
+              placeholder={t.tournamentsPage.placeholder}
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">Size</label>
+            <label className="block text-sm mb-1">{t.tournamentsPage.size}</label>
             <select
               className="border px-3 py-2 rounded"
               value={size}
@@ -90,34 +108,34 @@ export function TournamentsList() {
             onClick={create}
             className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60"
           >
-            {creating ? "Creating…" : "Create"}
+            {creating ? t.tournamentsPage.creating : t.tournamentsPage.create}
           </button>
         </div>
       </div>
 
       {/* List */}
       {loading ? (
-        <p>Loading…</p>
+        <p>{t.tournamentsPage.loading}</p>
       ) : items.length === 0 ? (
-        <p className="text-gray-600">No tournaments yet.</p>
+        <p className="text-gray-600">{t.tournamentsPage.noTournaments}</p>
       ) : (
         <ul className="space-y-2">
-          {items.map((t) => (
+          {items.map((tournament) => (
             <li
-              key={t.id}
+              key={tournament.id}
               className="border rounded p-3 flex items-center justify-between"
             >
               <div>
-                <div className="font-semibold">{t.name}</div>
-                <div className="text-sm text-gray-600 capitalize">
-                  {t.status}
+                <div className="font-semibold">{tournament.name}</div>
+                <div className="text-sm text-gray-600">
+                  {getStatusTranslation(tournament.status)}
                 </div>
               </div>
               <Link
-                to={`/tournaments/${t.id}`}
+                to={`/tournaments/${tournament.id}`}
                 className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
               >
-                Open
+                {t.tournamentsPage.open}
               </Link>
             </li>
           ))}

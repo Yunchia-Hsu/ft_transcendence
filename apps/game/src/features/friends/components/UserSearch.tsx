@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import { useFriendsStore } from '../store/friends.store';
 import { useAuthStore } from '../../auth/store/auth.store';
 import { useUiStore } from '../../../shared/store/ui.store';
+import { useLang } from '../../../localization';
 
 export default function UserSearch() {
+  const { t } = useLang();
   const [searchQuery, setSearchQuery] = useState('');
   const token = useAuthStore((s) => s.token);
   const userId = useAuthStore((s) => s.userId);
@@ -29,9 +31,9 @@ export default function UserSearch() {
     
     try {
       await sendFriendRequest(token, userId);
-      showBanner('Friend request sent!', 'success');
+      showBanner(t.friends.messages.requestSent, 'success');
     } catch (error) {
-      showBanner('Failed to send friend request', 'error');
+      showBanner(t.friends.messages.sendRequestFailed, 'error');
     }
   };
 
@@ -44,7 +46,7 @@ export default function UserSearch() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search for users by username..."
+            placeholder={t.friends.placeholders.searchUsers}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -53,7 +55,7 @@ export default function UserSearch() {
           disabled={searchLoading || !searchQuery.trim()}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {searchLoading ? 'Searching...' : 'Search'}
+          {searchLoading ? t.friends.actions.searching : t.friends.actions.search}
         </button>
       </form>
 
@@ -71,14 +73,14 @@ export default function UserSearch() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
-          <p className="text-gray-500">Try searching with a different username.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t.friends.empty.noSearchResults.title}</h3>
+          <p className="text-gray-500">{t.friends.empty.noSearchResults.description}</p>
         </div>
       )}
 
       {!searchLoading && searchResults.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Search Results</h3>
+          <h3 className="text-lg font-medium text-gray-900">{t.friends.status.searchResults}</h3>
           {searchResults.map((user) => (
             <div key={user.userid} className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -103,7 +105,7 @@ export default function UserSearch() {
                 onClick={() => handleSendRequest(user.userid)}
                 className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700"
               >
-                Add Friend
+{t.friends.actions.addFriend}
               </button>
             </div>
           ))}
@@ -117,8 +119,8 @@ export default function UserSearch() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Search for friends</h3>
-          <p className="text-gray-500">Enter a username to find and add new friends.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t.friends.empty.searchPrompt.title}</h3>
+          <p className="text-gray-500">{t.friends.empty.searchPrompt.description}</p>
         </div>
       )}
     </div>

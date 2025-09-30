@@ -4,12 +4,14 @@ import { FriendRequest } from '@/shared/api/friends';
 import { useFriendsStore } from '../store/friends.store';
 import { useAuthStore } from '../../auth/store/auth.store';
 import { useUiStore } from '../../../shared/store/ui.store';
+import { useLang } from '../../../localization';
 
 interface FriendRequestsProps {
   requests: FriendRequest[];
 }
 
 export default function FriendRequests({ requests }: FriendRequestsProps) {
+  const { t } = useLang();
   const token = useAuthStore((s) => s.token);
   const userId = useAuthStore((s) => s.userId);
   const showBanner = useUiStore((s) => s.showBanner);
@@ -32,9 +34,9 @@ export default function FriendRequests({ requests }: FriendRequestsProps) {
     
     try {
       await acceptFriendRequest(token, friendId, userId);
-      showBanner('Friend request accepted!', 'success');
+      showBanner(t.friends.messages.requestAccepted, 'success');
     } catch (error) {
-      showBanner('Failed to accept friend request', 'error');
+      showBanner(t.friends.messages.acceptRequestFailed, 'error');
     }
   };
 
@@ -43,9 +45,9 @@ export default function FriendRequests({ requests }: FriendRequestsProps) {
     
     try {
       await rejectFriendRequest(token, friendId);
-      showBanner('Friend request rejected', 'success');
+      showBanner(t.friends.messages.requestRejected, 'success');
     } catch (error) {
-      showBanner('Failed to reject friend request', 'error');
+      showBanner(t.friends.messages.rejectRequestFailed, 'error');
     }
   };
 
@@ -57,8 +59,8 @@ export default function FriendRequests({ requests }: FriendRequestsProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m13-8V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v1M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
-        <p className="text-gray-500">You don't have any friend requests at the moment.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">{t.friends.empty.noPendingRequests.title}</h3>
+        <p className="text-gray-500">{t.friends.empty.noPendingRequests.description}</p>
       </div>
     );
   }
@@ -89,7 +91,7 @@ export default function FriendRequests({ requests }: FriendRequestsProps) {
               <div>
                 <p className="font-medium text-gray-900">{displayName}</p>
                 <p className="text-sm text-gray-500">
-                  {requesterInfo.username ? `@${requesterInfo.username} wants to be your friend` : 'Wants to be your friend'}
+                  {requesterInfo.username ? `@${requesterInfo.username} ${t.friends.status.wantsToBeFriend}` : t.friends.status.wantsToBeFriend}
                 </p>
               </div>
             </div>
@@ -99,13 +101,13 @@ export default function FriendRequests({ requests }: FriendRequestsProps) {
                 onClick={() => handleAccept(request.friendid)}
                 className="bg-green-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-green-700"
               >
-                Accept
+{t.friends.actions.accept}
               </button>
               <button
                 onClick={() => handleReject(request.friendid)}
                 className="bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-gray-700"
               >
-                Decline
+{t.friends.actions.decline}
               </button>
             </div>
           </div>

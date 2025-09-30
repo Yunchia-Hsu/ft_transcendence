@@ -4,12 +4,14 @@ import { Friend } from '@/shared/api/friends';
 import { useFriendsStore } from '../store/friends.store';
 import { useAuthStore } from '../../auth/store/auth.store';
 import { useUiStore } from '../../../shared/store/ui.store';
+import { useLang } from '../../../localization';
 
 interface SentRequestsProps {
   requests: Friend[];
 }
 
 export default function SentRequests({ requests }: SentRequestsProps) {
+  const { t } = useLang();
   const token = useAuthStore((s) => s.token);
   const userId = useAuthStore((s) => s.userId);
   const showBanner = useUiStore((s) => s.showBanner);
@@ -29,12 +31,12 @@ export default function SentRequests({ requests }: SentRequestsProps) {
   const handleCancel = async (friendId: string) => {
     if (!token) return;
     
-    if (confirm('Are you sure you want to cancel this friend request?')) {
+    if (confirm(t.friends.confirmations.cancelRequest)) {
       try {
         await deleteFriendRequest(token, friendId);
-        showBanner('Friend request cancelled', 'success');
+        showBanner(t.friends.messages.requestCancelled, 'success');
       } catch (error) {
-        showBanner('Failed to cancel friend request', 'error');
+        showBanner(t.friends.messages.cancelRequestFailed, 'error');
       }
     }
   };
@@ -47,8 +49,8 @@ export default function SentRequests({ requests }: SentRequestsProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No sent requests</h3>
-        <p className="text-gray-500">You haven't sent any friend requests yet.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">{t.friends.empty.noSentRequests.title}</h3>
+        <p className="text-gray-500">{t.friends.empty.noSentRequests.description}</p>
       </div>
     );
   }
@@ -79,20 +81,20 @@ export default function SentRequests({ requests }: SentRequestsProps) {
               <div>
                 <p className="font-medium text-gray-900">{displayName}</p>
                 <p className="text-sm text-gray-500">
-                  {friendInfo.username ? `@${friendInfo.username}` : 'Friend request sent'}
+                  {friendInfo.username ? `@${friendInfo.username}` : t.friends.status.requestSent}
                 </p>
               </div>
             </div>
             
             <div className="flex items-center space-x-2">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                Pending
+{t.friends.status.pending}
               </span>
               <button
                 onClick={() => handleCancel(request.friendid)}
                 className="text-red-600 hover:text-red-800 text-sm font-medium"
               >
-                Cancel
+{t.friends.actions.cancel}
               </button>
             </div>
           </div>
