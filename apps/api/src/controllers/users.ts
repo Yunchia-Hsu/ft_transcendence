@@ -445,7 +445,7 @@ try{
   }
   //create new friendid 
   const friendid = crypto.randomUUID();
-  const newfriend  = await db
+  await db
     .insertInto("friends")
     .values({
       friendid,
@@ -454,17 +454,30 @@ try{
       friendstatus: "pending",
       requested_by: senderId, 
     })
-    .returningAll()
-    .executeTakeFirstOrThrow();
+    .execute();
   
-  //return newfriend;
-  return {
-    friendid: newfriend.friendid,
-    user1: newfriend.user1,
-    user2: newfriend.user2,
-    friendstatus: newfriend.friendstatus,
-    requested_by: newfriend.requested_by,
-  };
+  // Return the new friend record with user details
+  const newFriendWithUserDetails = await db
+    .selectFrom("friends")
+    .leftJoin("users as u1", "friends.user1", "u1.userid")
+    .leftJoin("users as u2", "friends.user2", "u2.userid")
+    .select([
+      "friends.friendid",
+      "friends.user1",
+      "friends.user2",
+      "friends.friendstatus",
+      "friends.requested_by",
+      "u1.username as user1_username",
+      "u1.displayname as user1_displayname",
+      "u1.avatar as user1_avatar",
+      "u2.username as user2_username",
+      "u2.displayname as user2_displayname",
+      "u2.avatar as user2_avatar",
+    ])
+    .where("friendid", "=", friendid)
+    .executeTakeFirstOrThrow();
+
+  return newFriendWithUserDetails;
 }catch(err:any)
 {
   throw new Error ("friend pair alreay exists");
@@ -489,14 +502,34 @@ export const acceptFriendRequest = async(userId: string, requestId: string):Prom
   if(existing.requested_by === userId) {
     throw new Error("you cannot accept your own friend request");
   } 
-  const updated = await db
+  await db
     .updateTable("friends")
     .set({ friendstatus: "accepted" })
     .where("friendid", "=", requestId)
-    .returningAll()
+    .execute();
+
+  // Return the updated friend record with user details
+  const updatedWithUserDetails = await db
+    .selectFrom("friends")
+    .leftJoin("users as u1", "friends.user1", "u1.userid")
+    .leftJoin("users as u2", "friends.user2", "u2.userid")
+    .select([
+      "friends.friendid",
+      "friends.user1",
+      "friends.user2",
+      "friends.friendstatus",
+      "friends.requested_by",
+      "u1.username as user1_username",
+      "u1.displayname as user1_displayname",
+      "u1.avatar as user1_avatar",
+      "u2.username as user2_username",
+      "u2.displayname as user2_displayname",
+      "u2.avatar as user2_avatar",
+    ])
+    .where("friendid", "=", requestId)
     .executeTakeFirstOrThrow();
 
-  return updated;
+  return updatedWithUserDetails;
 
 }
 

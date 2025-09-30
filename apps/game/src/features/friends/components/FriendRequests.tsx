@@ -28,10 +28,10 @@ export default function FriendRequests({ requests }: FriendRequestsProps) {
   };
 
   const handleAccept = async (friendId: string) => {
-    if (!token) return;
+    if (!token || !userId) return;
     
     try {
-      await acceptFriendRequest(token, friendId);
+      await acceptFriendRequest(token, friendId, userId);
       showBanner('Friend request accepted!', 'success');
     } catch (error) {
       showBanner('Failed to accept friend request', 'error');

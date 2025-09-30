@@ -1090,7 +1090,7 @@ app.openapi(
         authorization: z.string().describe("Bearer token for authentication"),
       }),
       params: z.object({
-        requestId: z.string().uuid(),
+        friendId: z.string().uuid(),
       }),
     },
     responses: {
@@ -1152,7 +1152,7 @@ app.openapi(
       
       if (!userId) return c.json({ error: "Invalid token" }, 401);
 
-      const { friendId } = c.req.param();
+      const { friendId } = c.req.valid("param");
       
       const updated = await acceptFriendRequest(userId, friendId);
       return c.json(updated, 200); // 與 OpenAPI spec 一致
@@ -1191,7 +1191,7 @@ app.openapi(
         authorization: z.string().describe("Bearer token for authentication"),
       }),
       params: z.object({
-        requestId: z.string().uuid(),
+        friendId: z.string().uuid(),
       }),
     },
     responses: {
@@ -1253,7 +1253,7 @@ app.openapi(
       
       if (!userId) return c.json({ error: "Invalid token" }, 401);
 
-      const { friendId } = c.req.param();
+      const { friendId } = c.req.valid("param");
       
       const updated = await RejectedFriendRequest(userId, friendId);
       return c.json(updated, 200); 
@@ -1327,12 +1327,26 @@ app.openapi(
       //找friendid   status 是pending,  我在pair內 || requestid != userid
       const rows = await db
         .selectFrom("friends")
-        .selectAll()
+        .leftJoin("users as u1", "friends.user1", "u1.userid")
+        .leftJoin("users as u2", "friends.user2", "u2.userid")
+        .select([
+          "friends.friendid",
+          "friends.user1",
+          "friends.user2",
+          "friends.friendstatus",
+          "friends.requested_by",
+          "u1.username as user1_username",
+          "u1.displayname as user1_displayname",
+          "u1.avatar as user1_avatar",
+          "u2.username as user2_username",
+          "u2.displayname as user2_displayname",
+          "u2.avatar as user2_avatar",
+        ])
         .where("friendstatus", "=", "pending")
         .where((qb)=>
         qb.or([
-          qb("user1", "=", userId ?? ""),
-          qb("user2", "=", userId ?? ""),
+          qb("friends.user1", "=", userId ?? ""),
+          qb("friends.user2", "=", userId ?? ""),
         ])
         )
         .where("requested_by", "<>", userId ?? "")

@@ -17,7 +17,7 @@ type FriendsState = {
   fetchPendingRequests: (token: string, userId: string) => Promise<void>;
   fetchSentRequests: (token: string, userId: string) => Promise<void>;
   sendFriendRequest: (token: string, receiverId: string) => Promise<void>;
-  acceptFriendRequest: (token: string, friendId: string) => Promise<void>;
+  acceptFriendRequest: (token: string, friendId: string, userId: string) => Promise<void>;
   rejectFriendRequest: (token: string, friendId: string) => Promise<void>;
   deleteFriendRequest: (token: string, friendId: string) => Promise<void>;
   deleteFriend: (token: string, friendId: string) => Promise<void>;
@@ -88,16 +88,28 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
     }
   },
 
-  acceptFriendRequest: async (token: string, friendId: string) => {
+  acceptFriendRequest: async (token: string, friendId: string, userId: string) => {
     set({ loading: true, error: null });
     try {
-      const acceptedFriend = await FriendsApi.acceptFriendRequest(token, friendId);
-      const { friends, pendingRequests } = get();
+      await FriendsApi.acceptFriendRequest(token, friendId);
       
-      set({
-        friends: [...friends, acceptedFriend],
-        pendingRequests: pendingRequests.filter(req => req.friendid !== friendId),
-        loading: false
+      // Refresh all data to ensure consistency
+      const [allFriends, pendingRequests] = await Promise.all([
+        FriendsApi.getFriends(token),
+        FriendsApi.getPendingRequests(token, userId)
+      ]);
+      
+      // Filter friends by status
+      const friends = allFriends.filter(friend => friend.friendstatus === "accepted");
+      const sentRequests = allFriends.filter(friend => 
+        friend.friendstatus === "pending" && friend.requested_by === userId
+      );
+      
+      set({ 
+        friends, 
+        pendingRequests, 
+        sentRequests, 
+        loading: false 
       });
     } catch (error: any) {
       set({ error: error.message || "Failed to accept friend request", loading: false });
