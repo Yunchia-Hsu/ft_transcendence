@@ -17,6 +17,8 @@ coverage
 
 # Turbo
 .turbo
+# Ignore any nested Turbo cache dirs
+**/.turbo/
 
 # Vercel
 .vercel
@@ -42,3 +44,19 @@ packages/infra/db/*.sqlite
 packages/infra/db/*.sqlite-wal
 packages/infra/db/*.sqlite-shm
 
+apps/game/tsconfig.tsbuildinfo
+# TypeScript build info anywhere
+**/*.tsbuildinfo
+
+# Vite caches anywhere
+**/.vite/
+**/.vite-temp/
+
+# Env files anywhere
+**/.env
+**/.env.*
+
+# One-off leftover file from init
+apps/game/--yes
+.gitignore
+apps/game/.gitignore

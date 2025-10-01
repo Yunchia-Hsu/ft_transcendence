@@ -1,9 +1,9 @@
 import { Kysely, SqliteDialect } from "kysely";
-import  Database from "better-sqlite3";
+import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-export type FriendStatus = 'pending' | 'accepted' | 'declined';
+export type FriendStatus = "pending" | "accepted" | "declined";
 // ----- DB Paths -----
 // Use import.meta.url to get the current file path in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -34,6 +34,7 @@ export interface Game {
   player2: string;
   score: string; // serialized game state or score
   status: string; // "pending" | "ongoing" | "completed"
+  winner_id: string | null;
 }
 
 export interface Tournament {
@@ -69,8 +70,6 @@ export interface MatchmakingQueue {
   queued_at: string; // ISO
 }
 
-
-
 export interface DatabaseSchema {
   games: Game;
   matchmaking_queue: MatchmakingQueue;
@@ -81,7 +80,7 @@ export interface DatabaseSchema {
   friends: Friends;
 }
 
-export interface DatabaseUser {    
+export interface DatabaseUser {
   userid: string;
   username: string;
   displayname: string | null;
@@ -95,7 +94,7 @@ export interface DatabaseUser {
   twoFactorEnabled: number; //0 false 1 true
 }
 
-export interface Friends{
+export interface Friends {
   friendid: string;
   user1: string;
   user2: string;
@@ -125,6 +124,7 @@ export const initDB = async (): Promise<void> => {
     .addColumn("player2", "text")
     .addColumn("score", "text")
     .addColumn("status", "text")
+    .addColumn("winner_id", "text", (col) => col.defaultTo(null))
     .execute();
 
   await db.schema
@@ -187,7 +187,9 @@ export const initDB = async (): Promise<void> => {
     .addColumn("avatar", "text")
     .addColumn("status", "text", (col) => col.notNull().defaultTo("offline"))
     .addColumn("twoFactorSecret", "text")
-    .addColumn("twoFactorEnabled", "integer", (col) => col.notNull().defaultTo(0))
+    .addColumn("twoFactorEnabled", "integer", (col) =>
+      col.notNull().defaultTo(0)
+    )
     .execute();
 
   // Helpful indexes
@@ -212,20 +214,23 @@ export const initDB = async (): Promise<void> => {
     .columns(["tournament_id", "round"])
     .execute();
 
+
   console.log(
     "DB init ok: games, matchmaking_queue, tournaments, tournament_participants, tournament_matches, users"
   );
-  
+
   await db.schema
     .createTable("friends")
     .ifNotExists()
     .addColumn("friendid", "text", (col) => col.primaryKey())
     .addColumn("user1", "text", (col) => col.notNull())
     .addColumn("user2", "text", (col) => col.notNull())
-    .addColumn("friendstatus", "text",(col) => col.notNull().defaultTo("pending"))
-    .addColumn("requested_by", "text") 
+    .addColumn("friendstatus", "text", (col) =>
+      col.notNull().defaultTo("pending")
+    )
+    .addColumn("requested_by", "text")
     .execute();
-    console.log("DB init: ensured tables games, matchmaking_queue, users");
+  console.log("DB init: ensured tables games, matchmaking_queue, users");
 };
 
 /* ---------- User helpers (no any/unknown) ---------- */
@@ -263,7 +268,9 @@ export const saveUserToDatabase = async (user: DatabaseUser): Promise<void> => {
     .execute();
 };
 
-export const getUserByUsername = async (username: string): Promise<DatabaseUser | null> => {
+export const getUserByUsername = async (
+  username: string
+): Promise<DatabaseUser | null> => {
   const user = await db
     .selectFrom("users")
     .selectAll()
@@ -287,7 +294,9 @@ export const getUserByUsername = async (username: string): Promise<DatabaseUser 
   };
 };
 
-export const getUserById = async (userid: string): Promise<DatabaseUser | null> => {
+export const getUserById = async (
+  userid: string
+): Promise<DatabaseUser | null> => {
   const user = await db
     .selectFrom("users")
     .selectAll()
@@ -309,7 +318,7 @@ export const getUserById = async (userid: string): Promise<DatabaseUser | null> 
     twoFactorSecret: user.twoFactorSecret,
     twoFactorEnabled: user.twoFactorEnabled,
   };
- // return row ? normalizeUser(row) : null;
+  // return row ? normalizeUser(row) : null;
 };
 
 // export const getUserByEmail = async (
@@ -328,7 +337,7 @@ export const getUserById = async (userid: string): Promise<DatabaseUser | null> 
 //     username: user.username,
 //     displayname: user.displayname,
 //     email: user.email,
-//     password: user.password,            
+//     password: user.password,
 //     isEmailVerified: user.isEmailVerified,
 //     createdAt: user.createdAt,
 //     avatar: user.avatar,

@@ -8,18 +8,26 @@ import {
   gameParamSchema,
   listGamesQuerySchema,
   makeMoveSuccessSchema,
+  completeGameBodySchema,
+  completeGameOkSchema,
+  completeGameErrSchema,
 } from "../schemas/gameSchemas.js";
 import {
   startGame,
   getGameStatus,
   makeMove,
   listGames,
+  completeGame,
 } from "../controllers/games.js";
+import { maybeAdvanceTournamentFromGame } from "../controllers/tournaments-advance.js";
+import type { Game } from "infra/db/index.js";
+
+type Result =
+  | { ok: true; game: Game }
+  | { ok: false; code: "GAME_NOT_FOUND" | "ALREADY_COMPLETED" };
 
 const gameRoutes = (app: OpenAPIHono) => {
-  // const db = createDb();
-
-  // POST /api/games/start — manual game (useful for testing/admin)
+  // POST /api/games/start
   app.openapi(
     createRoute({
       method: "post",
@@ -44,16 +52,14 @@ const gameRoutes = (app: OpenAPIHono) => {
     async (c) => {
       const body = await c.req.json();
       const parsed = gameStartSchema.safeParse(body);
-      if (!parsed.success) {
-        return c.json({ error: parsed.error.issues }, 400);
-      }
+      if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
       const { player1, player2 } = parsed.data;
       const newGame = await startGame(db, { player1, player2 });
       return c.json(newGame, 201);
     }
   );
 
-  // GET /api/games/{gameId} — typed param validation
+  // GET /api/games/{gameId}
   app.openapi(
     createRoute({
       method: "get",
@@ -72,16 +78,14 @@ const gameRoutes = (app: OpenAPIHono) => {
       operationId: "getGameStatus",
     }),
     async (c) => {
-      const { gameId } = c.req.valid("param"); // validated & typed
+      const { gameId } = c.req.valid("param");
       const gameStatus = await getGameStatus(db, gameId);
-      if (!gameStatus) {
-        return c.json({ error: "Game not found" }, 404);
-      }
+      if (!gameStatus) return c.json({ error: "Game not found" }, 404);
       return c.json(gameStatus, 200);
     }
   );
 
-  // POST /api/games/{gameId}/move — no `any`, fully typed
+  // POST /api/games/{gameId}/move
   app.openapi(
     createRoute({
       method: "post",
@@ -109,15 +113,14 @@ const gameRoutes = (app: OpenAPIHono) => {
     }),
     async (c) => {
       try {
-        const { gameId } = c.req.valid("param"); // typed param
+        const { gameId } = c.req.valid("param");
         const body = await c.req.json();
         const parsed = moveSchema.safeParse(body);
-        if (!parsed.success) {
+        if (!parsed.success)
           return c.json(
             { ok: false, code: "INVALID_MOVE", issues: parsed.error.issues },
             400
           );
-        }
 
         const result = await makeMove(db, gameId, parsed.data);
 
@@ -136,7 +139,7 @@ const gameRoutes = (app: OpenAPIHono) => {
         return c.json(
           {
             ok: false,
-            code: "SERVER_ERROR",
+            code: "SERVER_ERROR" as const,
             message: (err as Error).message,
           },
           500
@@ -145,7 +148,7 @@ const gameRoutes = (app: OpenAPIHono) => {
     }
   );
 
-  // GET /api/games — list (filterable)
+  // GET /api/games
   app.openapi(
     createRoute({
       method: "get",
@@ -165,6 +168,74 @@ const gameRoutes = (app: OpenAPIHono) => {
       const query = c.req.valid("query");
       const games = await listGames(db, query);
       return c.json(games, 200);
+    }
+  );
+
+  // POST /api/games/{gameId}/complete — mark as completed
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/games/{gameId}/complete",
+      request: {
+        params: gameParamSchema,
+        body: {
+          content: { "application/json": { schema: completeGameBodySchema } },
+          required: false,
+        },
+      },
+      responses: {
+        200: {
+          description: "Game completed",
+          content: { "application/json": { schema: completeGameOkSchema } },
+        },
+        404: {
+          description: "Game not found",
+          content: { "application/json": { schema: completeGameErrSchema } },
+        },
+        409: {
+          description: "Game already completed",
+          content: { "application/json": { schema: completeGameErrSchema } },
+        },
+        500: { description: "Server error" },
+      },
+      tags: ["games"],
+      summary: "Complete a game (set status to Completed, optional score)",
+      operationId: "completeGame",
+    }),
+    async (c) => {
+      try {
+        const { gameId } = c.req.valid("param");
+        const body = (await c.req.json().catch(() => ({}))) as {
+          score?: string;
+          winnerId?: string;
+        };
+        const res = await completeGame(db, gameId, body);
+
+        if (!res.ok) {
+          if (res.code === "GAME_NOT_FOUND") return c.json(res, 404);
+          if (res.code === "ALREADY_COMPLETED") return c.json(res, 409);
+          // ensure we EXIT on all non-ok paths
+          return c.json({ ok: false, code: "SERVER_ERROR" as const }, 500);
+        }
+
+        // From here, res is { ok: true; game: Game }
+        try {
+          await maybeAdvanceTournamentFromGame(db, res.game);
+        } catch (e) {
+          console.error("[tournament propagate] failed:", e);
+        }
+
+        return c.json(res, 200);
+      } catch (err) {
+        return c.json(
+          {
+            ok: false,
+            code: "SERVER_ERROR" as const,
+            message: (err as Error).message,
+          },
+          500
+        );
+      }
     }
   );
 };

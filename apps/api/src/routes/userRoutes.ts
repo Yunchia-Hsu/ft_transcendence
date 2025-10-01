@@ -227,20 +227,44 @@ const userRoutes = (app: OpenAPIHono) => {
     }
   );
   
-// get all users
+// get all users (with optional search)
   app.openapi(
     createRoute({
       method: "get",
       path: "/api/auth/users",
+      request: {
+        query: z.object({
+          search: z.string().optional().describe("Search users by username"),
+        }),
+      },
       responses: {
         200: { description: "List of users" },
         404: { description: "No users found" },
       },
       tags: ["users"],
-      summary: "retrieve all users's info"
+      summary: "retrieve all users's info with optional search"
     }),
     async (c) => {
-      const users = await getAllUsers();
+      const { search } = c.req.query();
+      
+      let users;
+      if (search) {
+        // Search users by username
+        users = await db
+          .selectFrom("users")
+          .select([
+            "userid",
+            "username",
+            "displayname",
+            "avatar",
+          ])
+          .where("username", "like", `%${search}%`)
+          .execute();
+      } else {
+        // Get all users
+        users = await getAllUsers();
+      }
+      
       if (!users || users.length === 0) {
         return c.json({ error: "No users found" }, 404);
       }
@@ -382,8 +406,8 @@ const userRoutes = (app: OpenAPIHono) => {
         }
   
         // 5. Update user profile
-        const { username, displayname } = result.data;
-        const updatedUser = await updateUserProfile(userId, { username, displayname });
+        const { username, displayname, avatar } = result.data;
+        const updatedUser = await updateUserProfile(userId, { username, displayname, avatar });
         
         if (!updatedUser) {
           return c.json({ error: "User not found" }, 404);
@@ -1066,7 +1090,7 @@ app.openapi(
         authorization: z.string().describe("Bearer token for authentication"),
       }),
       params: z.object({
-        requestId: z.string().uuid(),
+        friendId: z.string().uuid(),
       }),
     },
     responses: {
@@ -1128,7 +1152,7 @@ app.openapi(
       
       if (!userId) return c.json({ error: "Invalid token" }, 401);
 
-      const { friendId } = c.req.param();
+      const { friendId } = c.req.valid("param");
       
       const updated = await acceptFriendRequest(userId, friendId);
       return c.json(updated, 200); // 與 OpenAPI spec 一致
@@ -1167,7 +1191,7 @@ app.openapi(
         authorization: z.string().describe("Bearer token for authentication"),
       }),
       params: z.object({
-        requestId: z.string().uuid(),
+        friendId: z.string().uuid(),
       }),
     },
     responses: {
@@ -1229,7 +1253,7 @@ app.openapi(
       
       if (!userId) return c.json({ error: "Invalid token" }, 401);
 
-      const { friendId } = c.req.param();
+      const { friendId } = c.req.valid("param");
       
       const updated = await RejectedFriendRequest(userId, friendId);
       return c.json(updated, 200); 
@@ -1303,12 +1327,26 @@ app.openapi(
       //找friendid   status 是pending,  我在pair內 || requestid != userid
       const rows = await db
         .selectFrom("friends")
-        .selectAll()
+        .leftJoin("users as u1", "friends.user1", "u1.userid")
+        .leftJoin("users as u2", "friends.user2", "u2.userid")
+        .select([
+          "friends.friendid",
+          "friends.user1",
+          "friends.user2",
+          "friends.friendstatus",
+          "friends.requested_by",
+          "u1.username as user1_username",
+          "u1.displayname as user1_displayname",
+          "u1.avatar as user1_avatar",
+          "u2.username as user2_username",
+          "u2.displayname as user2_displayname",
+          "u2.avatar as user2_avatar",
+        ])
         .where("friendstatus", "=", "pending")
         .where((qb)=>
         qb.or([
-          qb("user1", "=", userId ?? ""),
-          qb("user2", "=", userId ?? ""),
+          qb("friends.user1", "=", userId ?? ""),
+          qb("friends.user2", "=", userId ?? ""),
         ])
         )
         .where("requested_by", "<>", userId ?? "")

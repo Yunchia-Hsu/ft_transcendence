@@ -16,9 +16,21 @@ export const startGame = async (
     player2,
     score: "0-0",
     status: "In Progress",
+    winner_id: null,
   };
 
-  await db.insertInto("games").values(newGame).execute();
+  // Create insert object without null values for SQLite compatibility
+  const insertData = {
+    game_id: newGame.game_id,
+    player1: newGame.player1,
+    player2: newGame.player2,
+    score: newGame.score,
+    status: newGame.status,
+    // Only include winner_id if it's not null
+    ...(newGame.winner_id && { winner_id: newGame.winner_id })
+  };
+
+  await db.insertInto("games").values(insertData).execute();
 
   return newGame;
 };
@@ -86,4 +98,56 @@ export const listGames = async (
   }
 
   return await q.execute();
+};
+
+export const completeGame = async (
+  db: Kysely<DatabaseSchema>,
+  gameId: string,
+  body: { score?: string; winnerId?: string }
+): Promise<
+  | { ok: true; game: Game }
+  | { ok: false; code: "GAME_NOT_FOUND" | "ALREADY_COMPLETED" }
+> => {
+  const game = await db
+    .selectFrom("games")
+    .selectAll()
+    .where("game_id", "=", gameId)
+    .executeTakeFirst();
+
+  if (!game) return { ok: false, code: "GAME_NOT_FOUND" };
+  if (game.status === "Completed") {
+    return { ok: false, code: "ALREADY_COMPLETED" };
+  }
+
+  // Update status (+ optional score)
+  const newScore = body.score ?? game.score;
+
+  let resolvedWinner: string | null = null;
+  const provided = body.winnerId;
+  if (provided && (provided === game.player1 || provided === game.player2)) {
+    resolvedWinner = provided;
+  } else {
+    const m = /^(\d+)\s*-\s*(\d+)$/.exec(newScore || "");
+    if (m) {
+      const a = Number(m[1]);
+      const b = Number(m[2]);
+      if (!Number.isNaN(a) && !Number.isNaN(b) && a !== b) {
+        resolvedWinner = a > b ? game.player1 : game.player2;
+      }
+    }
+  }
+
+  await db
+    .updateTable("games")
+    .set({ status: "Completed", score: newScore, winner_id: resolvedWinner }) // ✅ set winner_id
+    .where("game_id", "=", gameId)
+    .execute();
+
+  const updated = await db
+    .selectFrom("games")
+    .selectAll()
+    .where("game_id", "=", gameId)
+    .executeTakeFirst();
+
+  return { ok: true, game: updated as Game };
 };

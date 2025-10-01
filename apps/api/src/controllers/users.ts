@@ -145,35 +145,44 @@ export const getUserProfile = async (userid: string): Promise<DatabaseUser | nul
   return user;
 };
 
-export const updateUserProfile = async (userId: string, data: { username: string; displayname: string | null }) => {
+export const updateUserProfile = async (userId: string, data: { username: string; displayname: string | null; avatar?: string | null }) => {
   try {
-    const { username, displayname } = data;
+    const { username, displayname, avatar } = data;
+    
+    // Prepare update data
+    const updateData: { username: string; displayname: string | null; avatar?: string | null } = {
+      username: username,
+      displayname: displayname,
+    };
+    
+    // Only include avatar if it's provided
+    if (avatar !== undefined) {
+      updateData.avatar = avatar;
+    }
     
     // Update user in database
     await db
       .updateTable("users")
-      .set({
-        username: username,
-        displayname: displayname,
-      })
+      .set(updateData)
       .where("userid", "=", userId)
       .execute();
     
     // Fetch updated user
     const updatedUser = await db
       .selectFrom("users")
-      .select(["userid", "username", "displayname"])
+      .select(["userid", "username", "displayname", "avatar"])
       .where("userid", "=", userId)
       .executeTakeFirst();
     
     if (!updatedUser) {
-      throw new Error("Friend not found");
+      throw new Error("User not found");
     }
     
     return {
       userId: updatedUser.userid,
       username: updatedUser.username,
       displayname: updatedUser.displayname,
+      avatar: updatedUser.avatar,
     };
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -228,6 +237,7 @@ export const getCurrentUser = async (userid: string) => {
       isEmailVerified: user.isEmailVerified,
       avatar: user.avatar,
       status: user.status || 'offline',
+      twoFactorEnabled: Boolean(user.twoFactorEnabled),
     };
   } catch (error) {
     console.error('Error getting current user:', error);
@@ -379,14 +389,25 @@ export const updateUserStatus = async (
 export const getFriends = async (userId: string) => {
   const friends = await db
     .selectFrom("friends")
-    .select(["friendid", "user1", "user2"])
-    // .where((qb) =>
-    //   qb.where("user1", "=", userId).orWhere("user2", "=", userId)
-    // )
+    .leftJoin("users as u1", "friends.user1", "u1.userid")
+    .leftJoin("users as u2", "friends.user2", "u2.userid")
+    .select([
+      "friends.friendid",
+      "friends.user1",
+      "friends.user2",
+      "friends.friendstatus",
+      "friends.requested_by",
+      "u1.username as user1_username",
+      "u1.displayname as user1_displayname",
+      "u1.avatar as user1_avatar",
+      "u2.username as user2_username",
+      "u2.displayname as user2_displayname",
+      "u2.avatar as user2_avatar",
+    ])
     .where((eb) =>
       eb.or([
-        eb('user1', '=', userId),
-        eb('user2', '=', userId),
+        eb('friends.user1', '=', userId),
+        eb('friends.user2', '=', userId),
       ]))
     .execute();
   return friends;
@@ -424,7 +445,7 @@ try{
   }
   //create new friendid 
   const friendid = crypto.randomUUID();
-  const newfriend  = await db
+  await db
     .insertInto("friends")
     .values({
       friendid,
@@ -433,17 +454,30 @@ try{
       friendstatus: "pending",
       requested_by: senderId, 
     })
-    .returningAll()
-    .executeTakeFirstOrThrow();
+    .execute();
   
-  //return newfriend;
-  return {
-    friendid: newfriend.friendid,
-    user1: newfriend.user1,
-    user2: newfriend.user2,
-    friendstatus: newfriend.friendstatus,
-    requested_by: newfriend.requested_by,
-  };
+  // Return the new friend record with user details
+  const newFriendWithUserDetails = await db
+    .selectFrom("friends")
+    .leftJoin("users as u1", "friends.user1", "u1.userid")
+    .leftJoin("users as u2", "friends.user2", "u2.userid")
+    .select([
+      "friends.friendid",
+      "friends.user1",
+      "friends.user2",
+      "friends.friendstatus",
+      "friends.requested_by",
+      "u1.username as user1_username",
+      "u1.displayname as user1_displayname",
+      "u1.avatar as user1_avatar",
+      "u2.username as user2_username",
+      "u2.displayname as user2_displayname",
+      "u2.avatar as user2_avatar",
+    ])
+    .where("friendid", "=", friendid)
+    .executeTakeFirstOrThrow();
+
+  return newFriendWithUserDetails;
 }catch(err:any)
 {
   throw new Error ("friend pair alreay exists");
@@ -468,14 +502,34 @@ export const acceptFriendRequest = async(userId: string, requestId: string):Prom
   if(existing.requested_by === userId) {
     throw new Error("you cannot accept your own friend request");
   } 
-  const updated = await db
+  await db
     .updateTable("friends")
     .set({ friendstatus: "accepted" })
     .where("friendid", "=", requestId)
-    .returningAll()
+    .execute();
+
+  // Return the updated friend record with user details
+  const updatedWithUserDetails = await db
+    .selectFrom("friends")
+    .leftJoin("users as u1", "friends.user1", "u1.userid")
+    .leftJoin("users as u2", "friends.user2", "u2.userid")
+    .select([
+      "friends.friendid",
+      "friends.user1",
+      "friends.user2",
+      "friends.friendstatus",
+      "friends.requested_by",
+      "u1.username as user1_username",
+      "u1.displayname as user1_displayname",
+      "u1.avatar as user1_avatar",
+      "u2.username as user2_username",
+      "u2.displayname as user2_displayname",
+      "u2.avatar as user2_avatar",
+    ])
+    .where("friendid", "=", requestId)
     .executeTakeFirstOrThrow();
 
-  return updated;
+  return updatedWithUserDetails;
 
 }
 
@@ -491,7 +545,7 @@ export const RejectedFriendRequest = async(userId: string, requestId: string):Pr
   if (!existing) {
     throw new Error("request not found");
   }
-  if (existing.friendstatus !== "accepted")
+  if (existing.friendstatus !== "pending")
   {
     throw new Error("the friend request is not pending");
   }

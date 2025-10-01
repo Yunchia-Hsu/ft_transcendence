@@ -25,6 +25,7 @@ export const gameSchema = z.object({
   player2: z.string(),
   score: z.string(),
   status: z.string(),
+  winner_id: z.string().nullable(),
 });
 
 export const makeMoveSuccessSchema = z.object({
@@ -39,4 +40,30 @@ export const listGamesQuerySchema = z.object({
     .optional()
     .openapi({ example: "In Progress" }),
   player: z.string().optional().openapi({ example: "alice123" }),
+});
+
+export const completeGameBodySchema = z
+  .object({
+    score: z.string().optional().openapi({ example: "11-7" }),
+    winnerId: z.string().optional().openapi({ example: "alice123" }),
+  })
+  .openapi({
+    example: { score: "11-7", winnerId: "alice123" },
+  });
+
+export const completeGameOkSchema = z.object({
+  ok: z.literal(true),
+  game: z.object({
+    game_id: z.string().uuid(),
+    player1: z.string(),
+    player2: z.string(),
+    score: z.string(),
+    status: z.literal("Completed"),
+    winner_id: z.string().nullable(),
+  }),
+});
+
+export const completeGameErrSchema = z.object({
+  ok: z.literal(false),
+  code: z.enum(["GAME_NOT_FOUND", "ALREADY_COMPLETED"]),
 });
