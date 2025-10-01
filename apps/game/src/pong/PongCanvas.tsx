@@ -428,7 +428,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { State, Vec } from "./engine";
 import { createState, update, STEP } from "./engine";
-
+import { PongAI } from "./AIOpponent";
 const BASE_W = 960;
 const BASE_H = 640;
 
@@ -508,7 +508,7 @@ class SimplePongAI {
     };
   }
 
-  private calculateTarget(gameState: State): void {
+  private calculateTarget(gameState: State): void { //預測球到達 AI 區域的 y 座標，並考慮邊界反彈。
     const ball = gameState.ball;
     const velocity = gameState.vel;
 
@@ -536,7 +536,7 @@ class SimplePongAI {
     this.updateInterval = 1000 + ((1 - difficulty) * 500);
   }
 
-  getDebugInfo(): any {
+  getDebugInfo(): any {//回傳 AI 的內部狀態（策略、目標、難度）。
     return {
       strategyMode: this.strategyMode,
       targetY: this.targetY,
@@ -563,7 +563,8 @@ export default function PongCanvas() {
   const input = useRef<InputTuple>([0, 0]);
   
   // 使用簡化的 AI 系統
-  const aiOpponent = useRef<SimplePongAI>(new SimplePongAI(0.8));
+ // const aiOpponent = useRef<SimplePongAI>(new SimplePongAI(0.8));
+  const aiOpponent = useRef<PongAI>(new PongAI(0.8));
   const aiDecision = useRef<AIDecision>({ direction: 0, usePowerUp: false, confidence: 0 });
   
   const trail = useRef<Vec[]>([]);
@@ -573,6 +574,7 @@ export default function PongCanvas() {
   const [gameRunning, setGameRunning] = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState(0.8);
   const [gameMode, setGameMode] = useState<'ai' | 'human'>('ai');
+  const [aiStrategy, setAiStrategy] = useState<string>('adaptive'); // Track AI strategy state
   const animationFrameId = useRef<number | null>(null);
 
   // 調整 AI 難度
@@ -580,6 +582,13 @@ export default function PongCanvas() {
     setAiDifficulty(difficulty);
     aiOpponent.current.setDifficulty(difficulty);
   };
+
+  // Set up AI strategy change callback
+  useEffect(() => {
+    aiOpponent.current.setOnStrategyChange((strategy: string) => {
+      setAiStrategy(strategy);
+    });
+  }, []);
 
   // responsive, hi-DPI sizing
   useEffect(() => {
@@ -631,12 +640,14 @@ export default function PongCanvas() {
     const handle = (e: KeyboardEvent, pressed: boolean): void => {
       const m = keyMap[e.key];
       if (!m) return;
-      
+
+      //console.log(`Key ${e.key} ${pressed ? 'pressed' : 'released'}, setting input[${m.idx}] = ${pressed ? m.dir : 0}`);
+
       if (e.key === 'Space' && pressed) {
         console.log("Human player activates power-up");
         return;
       }
-      
+
       input.current[m.idx] = pressed ? m.dir : 0;
     };
     
@@ -662,6 +673,9 @@ export default function PongCanvas() {
   };
 
   // main game loop
+  //更新遊戲狀態（移動球、偵測碰撞、得分）。
+  //更新粒子特效、球軌跡、閃光效果。
+//繪製畫面（呼叫 render）。
   useEffect(() => {
     if (!gameRunning) {
       if (animationFrameId.current !== null) {
@@ -685,7 +699,7 @@ export default function PongCanvas() {
 
       while (acc >= STEP) {
         let leftInput = input.current[0];
-        let rightInput= simpleAI(state);
+        let rightInput = simpleAI(stateRef.current);
         // let rightInput: Direction;
         
         if (gameMode === 'ai') {
@@ -713,9 +727,11 @@ export default function PongCanvas() {
         // 處理得分閃光效果
         if (ev.goal !== null) {
           flash.current = 1;
-          
+
           if (gameMode === 'ai') {
-            console.log("Goal scored. AI analyzing play...");
+            // Force AI to immediately analyze strategy after goal
+            console.log("Goal scored. AI analyzing strategy immediately...");
+            aiOpponent.current.analyzeGameState(stateRef.current);
           }
         }
 
@@ -813,7 +829,11 @@ export default function PongCanvas() {
         {gameMode === 'ai' && (
           <div style={{ fontSize: "12px" }}>
             <div>AI Confidence: {(aiDecision.current.confidence * 100).toFixed(0)}%</div>
-            <div>AI Strategy: {aiOpponent.current.getDebugInfo().strategyMode}</div>
+            <div>AI Strategy: <span style={{
+              color: aiStrategy === 'aggressive' ? '#ff6b6b' :
+                    aiStrategy === 'defensive' ? '#51cf66' : '#74c0fc',
+              fontWeight: 'bold'
+            }}>{aiStrategy}</span></div>
           </div>
         )}
       </div>

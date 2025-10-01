@@ -18,7 +18,8 @@ export interface TickEvent {
   goal: 0 | 1 | null;
 }
 
-const BASE_SPEED = 0.4; // base units/sec for ball & paddle
+const BASE_SPEED = 0.25; // base units/sec for ball (reduced from 0.4)
+const AI_PADDLE_SPEED_MULTIPLIER = 10; // AI paddle moves faster
 const PADDLE_H = 0.2; // fraction of height
 export const STEP = 1000 / 60; // ms per physics tick
 
@@ -40,10 +41,11 @@ export function update(
   speedFactor = 1
 ): TickEvent {
   // 1) move paddles
-  const paddleSpeed = BASE_SPEED * 2.0 * (STEP / 1000) * speedFactor; // 2倍paddle速度
-  
-  s.paddles[0] = clamp01(s.paddles[0] + input[0] * paddleSpeed);
-  s.paddles[1] = clamp01(s.paddles[1] + input[1] * paddleSpeed);
+  const humanPaddleSpeed = BASE_SPEED * 2.0 * (STEP / 1000) * speedFactor; // Human paddle speed
+  const aiPaddleSpeed = BASE_SPEED * AI_PADDLE_SPEED_MULTIPLIER * (STEP / 1000) * speedFactor; // AI paddle is faster
+
+  s.paddles[0] = clamp01(s.paddles[0] + input[0] * humanPaddleSpeed); // Human (left)
+  s.paddles[1] = clamp01(s.paddles[1] + input[1] * aiPaddleSpeed);    // AI (right)
   // 2) move ball
   s.ball.x += s.vel.x * (STEP / 1000) * speedFactor;
   s.ball.y += s.vel.y * (STEP / 1000) * speedFactor;
