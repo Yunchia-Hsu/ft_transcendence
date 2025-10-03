@@ -604,7 +604,6 @@ export default function PongCanvas() {
   );
 }
 
-/* ---------------- effects & rendering ---------------- */
 function spawnHitParticles(
   out: Particle[],
   x: number,
