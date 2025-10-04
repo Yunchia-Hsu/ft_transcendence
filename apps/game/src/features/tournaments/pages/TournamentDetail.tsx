@@ -15,6 +15,7 @@ export function TournamentDetail() {
   const { id } = useParams<{ id: string }>();
   const token = useAuthStore((s) => s.token);
   const userId = useAuthStore((s) => s.userId);
+  const userProfile = useAuthStore((s) => s.userProfile);
 
   // Helper function to translate tournament status
   const getStatusTranslation = (status: string) => {
@@ -37,6 +38,11 @@ export function TournamentDetail() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [nick, setNick] = useState("");
+  const needsUsername = useMemo(() => !userProfile?.username, [userProfile]);
+  const hasDisplayName = useMemo(
+    () => !!userProfile?.displayname && userProfile.displayname.trim().length > 0,
+    [userProfile]
+  );
 
   const canJoin = useMemo(
     () => !!token && detail?.status === "pending",
@@ -71,9 +77,14 @@ export function TournamentDetail() {
 
   const join = async () => {
     if (!id || !token || !canJoin) return;
+    if (needsUsername && !nick.trim()) {
+      // Username required before joining; prompt via required input
+      return;
+    }
     setBusy(true);
     try {
-      await TournamentsApi.join(id, token, nick.trim() || undefined);
+      const nicknameToSend = nick.trim() || (hasDisplayName ? userProfile!.displayname!.trim() : "");
+      await TournamentsApi.join(id, token, nicknameToSend || undefined);
       await load();
     } finally {
       setBusy(false);
@@ -142,12 +153,15 @@ export function TournamentDetail() {
           </button>
           {detail.status === "pending" ? (
             <>
-              <input
-                className="border px-3 py-1 rounded"
-                value={nick}
-                onChange={(e) => setNick(e.target.value)}
-                placeholder={t.game.tournaments.nicknameOptional}
-              />
+              {(needsUsername || !hasDisplayName) && (
+                <input
+                  className="border px-3 py-1 rounded"
+                  value={nick}
+                  onChange={(e) => setNick(e.target.value)}
+                  placeholder={needsUsername ? t.profile.labels.username : t.game.tournaments.nicknameOptional}
+                  required={needsUsername}
+                />
+              )}
               <button
                 disabled={!canJoin || busy}
                 onClick={join}
@@ -183,10 +197,7 @@ export function TournamentDetail() {
           <ul className="flex flex-wrap gap-2">
             {detail.participants.map((p) => (
               <li key={p.userId} className="px-2 py-1 bg-gray-100 rounded">
-                {p.nickname}{" "}
-                <span className="text-gray-500 text-xs">
-                  ({p.userId.slice(0, 6)}…)
-                </span>
+                {p.nickname}
               </li>
             ))}
           </ul>
