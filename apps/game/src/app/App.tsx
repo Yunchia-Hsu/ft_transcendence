@@ -28,64 +28,78 @@ function NavBar() {
   const logout = useAuthStore((s) => s.logout);
 
   return (
-    <div className="w-full flex items-center justify-between p-3 bg-gray-100">
-      <div className="flex items-center gap-3">
-        <Link to="/" className="font-semibold">
-          {t.nav.appName}
-        </Link>
+    <nav className="w-full bg-gray-100 border-b">
+      <div className="mx-auto max-w-screen-xl px-3 py-2 flex flex-wrap items-center gap-2">
+        {/* Left: brand + main nav */}
+        <div className="flex items-center gap-3 min-w-0">
+          <Link to="/" className="font-semibold truncate">
+            {t.nav.appName}
+          </Link>
 
-        {token && (
-          <>
-            <Link to="/profile" className="text-sm text-blue-700">
-              {t.nav.profile}
-            </Link>
-            <Link to="/friends" className="text-sm text-blue-700">
-              {t.nav.friends}
-            </Link>
-            <Link to="/tournaments" className="text-sm text-blue-700">
-              {t.nav.tournaments}
-            </Link>
-            {!tfa && (
-              <Link to="/enable-2fa" className="text-sm text-blue-700">
-                {t.nav.enable2fa}
+          {token && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <Link to="/profile" className="text-blue-700 hover:underline">
+                {t.nav.profile}
               </Link>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="text-sm">
-        <div className="flex items-center gap-2">
-          <select
-            value={lang}
-            onChange={(e) => setLang(e.target.value as LanguageCode)}
-            className="px-2 py-1 border rounded"
-          >
-            <option value="en">EN</option>
-            <option value="ru">RU</option>
-            <option value="zh">中文</option>
-          </select>
-
-          {token ? (
-            <button onClick={logout} className="px-3 py-1 bg-gray-200 rounded">
-              {t.nav.logout}
-            </button>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="px-3 py-1 bg-blue-600 text-white rounded"
-              >
-                {t.nav.login}
+              <Link to="/friends" className="text-blue-700 hover:underline">
+                {t.nav.friends}
               </Link>
-              <Link to="/register" className="px-3 py-1 bg-gray-200 rounded">
-                {t.nav.register}
+              <Link to="/tournaments" className="text-blue-700 hover:underline">
+                {t.nav.tournaments}
               </Link>
-            </>
+              {!tfa && (
+                <Link
+                  to="/enable-2fa"
+                  className="text-blue-700 hover:underline whitespace-nowrap"
+                >
+                  {t.nav.enable2fa}
+                </Link>
+              )}
+            </div>
           )}
         </div>
+
+        {/* Right: language + auth controls */}
+        {/* On small screens this block takes full width and moves to a second row */}
+        <div className="ml-auto flex items-center gap-2 flex-wrap basis-full md:basis-auto justify-between md:justify-end">
+          <div className="flex items-center gap-2">
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value as LanguageCode)}
+              className="px-2 py-1 border rounded h-8 shrink-0"
+            >
+              <option value="en">EN</option>
+              <option value="ru">RU</option>
+              <option value="zh">中文</option>
+            </select>
+
+            {token ? (
+              <button
+                onClick={logout}
+                className="px-3 py-1 bg-gray-200 rounded h-8 shrink-0 whitespace-nowrap"
+              >
+                {t.nav.logout}
+              </button>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="px-3 py-1 bg-blue-600 text-white rounded h-8 shrink-0 whitespace-nowrap"
+                >
+                  {t.nav.login}
+                </Link>
+                <Link
+                  to="/register"
+                  className="px-3 py-1 bg-gray-200 rounded h-8 shrink-0 whitespace-nowrap"
+                >
+                  {t.nav.register}
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </nav>
   );
 }
 

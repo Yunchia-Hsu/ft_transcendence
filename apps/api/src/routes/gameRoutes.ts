@@ -1,3 +1,4 @@
+// apps/server/src/api/routes/gameRoutes.ts
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { db } from "infra/db/index.js";
 import {
@@ -11,6 +12,10 @@ import {
   completeGameBodySchema,
   completeGameOkSchema,
   completeGameErrSchema,
+  // ⬇️ NEW
+  terminateGameBodySchema,
+  terminateGameOkSchema,
+  terminateGameErrSchema,
 } from "../schemas/gameSchemas.js";
 import {
   startGame,
@@ -18,6 +23,8 @@ import {
   makeMove,
   listGames,
   completeGame,
+  // ⬇️ NEW
+  terminateGame,
 } from "../controllers/games.js";
 import { maybeAdvanceTournamentFromGame } from "../controllers/tournaments-advance.js";
 import type { Game } from "infra/db/index.js";
@@ -27,7 +34,6 @@ type Result =
   | { ok: false; code: "GAME_NOT_FOUND" | "ALREADY_COMPLETED" };
 
 const gameRoutes = (app: OpenAPIHono) => {
-  // POST /api/games/start
   app.openapi(
     createRoute({
       method: "post",
@@ -59,7 +65,6 @@ const gameRoutes = (app: OpenAPIHono) => {
     }
   );
 
-  // GET /api/games/{gameId}
   app.openapi(
     createRoute({
       method: "get",
@@ -85,7 +90,6 @@ const gameRoutes = (app: OpenAPIHono) => {
     }
   );
 
-  // POST /api/games/{gameId}/move
   app.openapi(
     createRoute({
       method: "post",
@@ -148,7 +152,6 @@ const gameRoutes = (app: OpenAPIHono) => {
     }
   );
 
-  // GET /api/games
   app.openapi(
     createRoute({
       method: "get",
@@ -171,7 +174,7 @@ const gameRoutes = (app: OpenAPIHono) => {
     }
   );
 
-  // POST /api/games/{gameId}/complete — mark as completed
+  // Complete
   app.openapi(
     createRoute({
       method: "post",
@@ -199,7 +202,7 @@ const gameRoutes = (app: OpenAPIHono) => {
         500: { description: "Server error" },
       },
       tags: ["games"],
-      summary: "Complete a game (set status to Completed, optional score)",
+      summary: "Complete a game",
       operationId: "completeGame",
     }),
     async (c) => {
@@ -214,17 +217,79 @@ const gameRoutes = (app: OpenAPIHono) => {
         if (!res.ok) {
           if (res.code === "GAME_NOT_FOUND") return c.json(res, 404);
           if (res.code === "ALREADY_COMPLETED") return c.json(res, 409);
-          // ensure we EXIT on all non-ok paths
           return c.json({ ok: false, code: "SERVER_ERROR" as const }, 500);
         }
 
-        // From here, res is { ok: true; game: Game }
         try {
           await maybeAdvanceTournamentFromGame(db, res.game);
         } catch (e) {
           console.error("[tournament propagate] failed:", e);
         }
 
+        return c.json(res, 200);
+      } catch (err) {
+        return c.json(
+          {
+            ok: false,
+            code: "SERVER_ERROR" as const,
+            message: (err as Error).message,
+          },
+          500
+        );
+      }
+    }
+  );
+
+  // ⬇️ NEW: Terminate
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/games/{gameId}/terminate",
+      request: {
+        params: gameParamSchema,
+        body: {
+          content: { "application/json": { schema: terminateGameBodySchema } },
+          required: false,
+        },
+      },
+      responses: {
+        200: {
+          description: "Game terminated",
+          content: { "application/json": { schema: terminateGameOkSchema } },
+        },
+        404: {
+          description: "Game not found",
+          content: { "application/json": { schema: terminateGameErrSchema } },
+        },
+        409: {
+          description: "Already completed/terminated",
+          content: { "application/json": { schema: terminateGameErrSchema } },
+        },
+        500: { description: "Server error" },
+      },
+      tags: ["games"],
+      summary: "Terminate a game early (set status to Terminated, no winner)",
+      operationId: "terminateGame",
+    }),
+    async (c) => {
+      try {
+        const { gameId } = c.req.valid("param");
+        const body = (await c.req.json().catch(() => ({}))) as {
+          score?: string;
+        };
+        const res = await terminateGame(db, gameId, body);
+
+        if (!res.ok) {
+          if (res.code === "GAME_NOT_FOUND") return c.json(res, 404);
+          if (
+            res.code === "ALREADY_COMPLETED" ||
+            res.code === "ALREADY_TERMINATED"
+          )
+            return c.json(res, 409);
+          return c.json({ ok: false, code: "SERVER_ERROR" as const }, 500);
+        }
+
+        // Do NOT advance tournaments on terminated games
         return c.json(res, 200);
       } catch (err) {
         return c.json(

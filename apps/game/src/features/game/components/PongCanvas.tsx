@@ -1,4 +1,3 @@
-// apps/game/src/features/game/components/PongCanvas.tsx
 import { PongAI } from "./AIOpponent.js";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -11,6 +10,7 @@ import { useAuthStore } from "@/features/auth/store/auth.store";
 const BASE_W = 960;
 const BASE_H = 640;
 const WIN_SCORE = 11;
+const MAIN_MENU_PATH = "/game"; // change if your main menu route differs
 
 const COLORS = {
   bg1: "#B380A2",
@@ -39,10 +39,9 @@ type ViewParams = { cssW: number; cssH: number; dpr: number; scale: number };
 type AIDecision = {
   direction: Direction;
   usePowerUp: boolean;
-  confidence: number; // kept internally; not shown in UI
+  confidence: number;
 };
 
-// Nice, soft colors per AI strategy
 function getStrategyColors(mode: string) {
   if (mode === "aggressive") {
     return {
@@ -64,7 +63,6 @@ function getStrategyColors(mode: string) {
       panelBorder: "rgba(81,207,102,0.45)",
     };
   }
-  // adaptive
   return {
     chipBg: "rgba(116,192,252,0.18)",
     chipBorder: "#74c0fc",
@@ -99,6 +97,7 @@ export default function PongCanvas() {
 
   const [opponentId, setOpponentId] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
+  const [terminated, setTerminated] = useState(false);
   const [completing, setCompleting] = useState(false);
 
   const input = useRef<InputTuple>([0, 0]);
@@ -108,12 +107,12 @@ export default function PongCanvas() {
 
   const [gameRunning, setGameRunning] = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState(0.8);
-  const [gameMode, setGameMode] = useState<"ai" | "human">("human"); // derived from backend
+  const [gameMode, setGameMode] = useState<"ai" | "human">("human");
   const [aiStrategy, setAiStrategy] = useState<string>("adaptive");
   const animationFrameId = useRef<number | null>(null);
   const didComplete = useRef(false);
 
-  // Overlay states
+  // overlays
   const [showPregame, setShowPregame] = useState(true);
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownTimer = useRef<number | null>(null);
@@ -121,13 +120,15 @@ export default function PongCanvas() {
   // pulse when AI strategy changes
   const [strategyPulse, setStrategyPulse] = useState(0);
 
-  // adjust AI difficulty
+  // CONFIRM TERMINATE
+  const [showConfirmTerminate, setShowConfirmTerminate] = useState(false);
+  const [pausedForConfirm, setPausedForConfirm] = useState(false); // ← NEW
+
   const handleDifficultyChange = (difficulty: number) => {
     setAiDifficulty(difficulty);
     aiOpponent.current.setDifficulty(difficulty);
   };
 
-  // AI strategy change callback (only in AI mode)
   useEffect(() => {
     if (gameMode !== "ai") {
       setAiStrategy("adaptive");
@@ -140,7 +141,6 @@ export default function PongCanvas() {
     });
   }, [gameMode]);
 
-  // Detect game mode from backend
   useEffect(() => {
     if (!gameId) return;
     const fetchGameMode = async () => {
@@ -155,7 +155,6 @@ export default function PongCanvas() {
     fetchGameMode();
   }, [gameId]);
 
-  /* ---------- load game meta (opponent) ---------- */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -178,7 +177,6 @@ export default function PongCanvas() {
     };
   }, [gameId, userId]);
 
-  /* ---------- responsive sizing ---------- */
   useEffect(() => {
     const onResize = (): void => {
       if (!canvas.current) return;
@@ -191,13 +189,10 @@ export default function PongCanvas() {
 
       canvas.current.style.width = `${cssW}px`;
       canvas.current.style.height = `${cssH}px`;
-
       canvas.current.width = Math.round(cssW * dpr);
       canvas.current.height = Math.round(cssH * dpr);
-
       view.current = { cssW, cssH, dpr, scale: dpr * cssScale };
     };
-
     onResize();
     window.addEventListener("resize", onResize);
 
@@ -215,7 +210,6 @@ export default function PongCanvas() {
     };
   }, []);
 
-  /* ---------- keyboard ---------- */
   useEffect(() => {
     const keyMap: Record<string, { idx: 0 | 1; dir: Direction }> = {
       w: { idx: 0, dir: -1 },
@@ -227,12 +221,7 @@ export default function PongCanvas() {
     const handle = (e: KeyboardEvent, pressed: boolean): void => {
       const m = keyMap[e.key];
       if (!m) return;
-
-      if (e.key === "Space" && pressed) {
-        console.log("Human player activates power-up");
-        return;
-      }
-
+      if (e.key === "Space" && pressed) return; // power-up (reserved)
       input.current[m.idx] = pressed ? m.dir : 0;
     };
 
@@ -246,7 +235,6 @@ export default function PongCanvas() {
     };
   }, []);
 
-  /* ---------- AI input ---------- */
   const processAIInput = (currentTime: number): Direction => {
     aiDecision.current = aiOpponent.current.update(
       stateRef.current,
@@ -258,7 +246,6 @@ export default function PongCanvas() {
     return aiDecision.current.direction;
   };
 
-  /* ---------- start a NEW game helper ---------- */
   const startNewGame = useCallback(async () => {
     if (!userId) return;
     const opponent =
@@ -266,10 +253,10 @@ export default function PongCanvas() {
     try {
       const g = await GamesApi.start({ player1: userId, player2: opponent });
 
-      // reset local sim before navigating
       stateRef.current = createState();
       didComplete.current = false;
       setCompleted(false);
+      setTerminated(false);
       setGameRunning(false);
       setShowPregame(true);
       setCountdown(null);
@@ -283,7 +270,71 @@ export default function PongCanvas() {
     }
   }, [navigate, opponentId, userId]);
 
-  /* ---------- main loop ---------- */
+  // Pause when confirm opens; resume if cancelled
+  useEffect(() => {
+    if (showConfirmTerminate) {
+      if (gameRunning) {
+        setPausedForConfirm(true);
+        setGameRunning(false); // pauses RAF; stateRef preserved
+      }
+    } else {
+      if (pausedForConfirm && !terminated && !completed) {
+        setGameRunning(true); // resume from exact frame
+      }
+      setPausedForConfirm(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showConfirmTerminate]);
+
+  // Confirm dialog keyboard handling
+  useEffect(() => {
+    if (!showConfirmTerminate) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowConfirmTerminate(false); // will resume via effect
+      }
+      if (e.key === "Enter") {
+        setPausedForConfirm(false); // prevent resume-on-close
+        setShowConfirmTerminate(false);
+        void onTerminateClick();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showConfirmTerminate]);
+
+  const onTerminateClick = async () => {
+    if (!gameId) return;
+    // hard stop
+    if (animationFrameId.current !== null) {
+      cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
+    }
+    setGameRunning(false);
+    didComplete.current = true;
+
+    const [a, b] = stateRef.current.score;
+    const score = `${a}-${b}`;
+
+    try {
+      setCompleting(true);
+      const resp = await GamesApi.terminate(gameId, { score });
+      if (
+        !resp.ok &&
+        resp.code !== "ALREADY_TERMINATED" &&
+        resp.code !== "ALREADY_COMPLETED"
+      ) {
+        console.error("terminate failed:", resp.code);
+      }
+      setTerminated(true);
+    } catch (e) {
+      console.error("terminate error:", e);
+      setTerminated(true);
+    } finally {
+      setCompleting(false);
+    }
+  };
+
   useEffect(() => {
     if (!gameRunning) {
       if (animationFrameId.current !== null) {
@@ -302,13 +353,13 @@ export default function PongCanvas() {
     let last = performance.now();
 
     const loop = (now: number): void => {
-      if (didComplete.current) return; // hard stop after completion
+      if (didComplete.current) return;
 
       acc += now - last;
       last = now;
 
       while (acc >= STEP) {
-        if (didComplete.current) break; // extra guard
+        if (didComplete.current) break;
 
         const leftInput = input.current[0];
         const rightInput: Direction =
@@ -333,24 +384,20 @@ export default function PongCanvas() {
 
         if (ev.goal !== null) {
           flash.current = 1;
-          if (gameMode === "ai") {
+          if (gameMode === "ai")
             aiOpponent.current.analyzeGameState(stateRef.current);
-          }
         }
 
-        // win: exact target to avoid off-by-one UI vs server
-        const [a, b] = stateRef.current.score; // live state
+        const [a, b] = stateRef.current.score;
         if (!didComplete.current && (a === WIN_SCORE || b === WIN_SCORE)) {
           didComplete.current = true;
           setGameRunning(false);
           setCompleted(true);
 
           const score = `${a}-${b}`;
-          // If right/player2 wins, use opponentId (may be "bot"). If left wins, use userId.
           const winnerId =
             a > b ? (userId ?? "player1") : (opponentId ?? "player2");
 
-          // render final frame, then stop RAF immediately
           render(
             ctx,
             stateRef.current,
@@ -369,14 +416,13 @@ export default function PongCanvas() {
             setCompleting(true);
             (async () => {
               const resp = await GamesApi.complete(gameId, { score, winnerId });
-              if (!resp.ok && (resp as any).code !== "ALREADY_COMPLETED") {
-                console.error("complete failed:", (resp as any).code);
+              if (!resp.ok && resp.code !== "ALREADY_COMPLETED") {
+                console.error("complete failed:", resp.code);
               }
               setCompleting(false);
             })();
           }
-
-          return; // don’t render/schedule next frame
+          return;
         }
 
         stepParticles(particles.current, STEP / 1000);
@@ -407,13 +453,11 @@ export default function PongCanvas() {
     };
   }, [gameRunning, gameId, userId, opponentId, gameMode]);
 
-  /* ---------- Start / Countdown ---------- */
   const onPrimaryClick = () => {
-    if (completed) {
+    if (completed || terminated) {
       void startNewGame();
       return;
     }
-    // Start countdown → then start
     if (countdownTimer.current) {
       window.clearInterval(countdownTimer.current);
       countdownTimer.current = null;
@@ -426,13 +470,13 @@ export default function PongCanvas() {
         if (!prev || prev <= 1) {
           window.clearInterval(id);
           countdownTimer.current = null;
-          // reset sim at the moment match begins
           stateRef.current = createState();
           didComplete.current = false;
           particles.current = [];
           trail.current = [];
           flash.current = 0;
           setCompleted(false);
+          setTerminated(false);
           setGameRunning(true);
           return null;
         }
@@ -442,29 +486,30 @@ export default function PongCanvas() {
     countdownTimer.current = id;
   };
 
-  // Escape key to reopen pregame overlay if not running and not completed
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !gameRunning && !completed) {
+      if (e.key === "Escape" && !gameRunning && !completed && !terminated) {
         setShowPregame(true);
         setCountdown(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [gameRunning, completed]);
+  }, [gameRunning, completed, terminated]);
 
-  const primaryLabel = completed
-    ? completing
-      ? t.game.mainMenu.savingResult
-      : t.game.mainMenu.startNewGame
-    : countdown !== null
-      ? String(countdown)
-      : t.game.buttons.start;
+  const primaryLabel =
+    completed || terminated
+      ? completing
+        ? t.game.mainMenu.savingResult
+        : t.game.mainMenu.startNewGame
+      : countdown !== null
+        ? String(countdown)
+        : t.game.buttons.start;
 
   const primaryDisabled = completing;
-
   const strategyColors = getStrategyColors(aiStrategy);
+
+  const goToMenu = () => navigate(MAIN_MENU_PATH);
 
   return (
     <div
@@ -480,7 +525,7 @@ export default function PongCanvas() {
     >
       <canvas ref={canvas} />
 
-      {/* --- IN-GAME: tiny AI MODE badge (only when vs AI & running) --- */}
+      {/* In-game: AI badge */}
       {gameRunning && gameMode === "ai" && (
         <div
           style={{
@@ -497,7 +542,7 @@ export default function PongCanvas() {
             fontSize: 12,
             fontWeight: 800,
             letterSpacing: 0.4,
-            zIndex: 5,
+            zIndex: 6,
           }}
           title="AI strategy adapts during the match"
         >
@@ -505,8 +550,58 @@ export default function PongCanvas() {
         </div>
       )}
 
-      {/* --- PRE-GAME OVERLAY (cheerful gradient + info) --- */}
-      {(showPregame || countdown !== null) && !completed && (
+      {/* Back to Menu */}
+      {gameRunning && (
+        <button
+          onClick={goToMenu}
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            background: "rgba(255,255,255,0.1)",
+            color: "#fff",
+            border: "1px solid rgba(255,255,255,0.25)",
+            borderRadius: 10,
+            padding: "8px 12px",
+            fontWeight: 700,
+            cursor: "pointer",
+            backdropFilter: "blur(6px)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+            zIndex: 6,
+          }}
+          title="Go back to the main menu"
+        >
+          ← Menu
+        </button>
+      )}
+
+      {/* Terminate (opens confirm; game pauses automatically) */}
+      {gameRunning && (
+        <button
+          onClick={() => setShowConfirmTerminate(true)}
+          disabled={completing}
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            background: "#EF4444",
+            color: "#fff",
+            border: "none",
+            borderRadius: 10,
+            padding: "8px 12px",
+            fontWeight: 800,
+            cursor: completing ? "not-allowed" : "pointer",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+            zIndex: 6,
+          }}
+          title="Stop this match early and save as Terminated"
+        >
+          Terminate Match
+        </button>
+      )}
+
+      {/* PRE-GAME OVERLAY */}
+      {(showPregame || countdown !== null) && !completed && !terminated && (
         <div
           style={{
             position: "absolute",
@@ -566,7 +661,6 @@ export default function PongCanvas() {
                   >
                     Pong
                   </span>
-                  {/* Mode chip with colored BG */}
                   <span
                     style={{
                       padding: "4px 10px",
@@ -590,23 +684,39 @@ export default function PongCanvas() {
                   </span>
                 </div>
 
-                <button
-                  onClick={onPrimaryClick}
-                  disabled={primaryDisabled}
-                  style={{
-                    background: "#FF8C00",
-                    border: "none",
-                    padding: "10px 20px",
-                    color: "white",
-                    fontSize: 16,
-                    cursor: primaryDisabled ? "not-allowed" : "pointer",
-                    borderRadius: 10,
-                    fontWeight: 900,
-                    opacity: primaryDisabled ? 0.6 : 1,
-                  }}
-                >
-                  {primaryLabel}
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={goToMenu}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid rgba(0,0,0,0.2)",
+                      color: "#111",
+                      padding: "10px 16px",
+                      borderRadius: 10,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ← Menu
+                  </button>
+                  <button
+                    onClick={onPrimaryClick}
+                    disabled={primaryDisabled}
+                    style={{
+                      background: "#FF8C00",
+                      border: "none",
+                      padding: "10px 20px",
+                      color: "white",
+                      fontSize: 16,
+                      cursor: primaryDisabled ? "not-allowed" : "pointer",
+                      borderRadius: 10,
+                      fontWeight: 900,
+                      opacity: primaryDisabled ? 0.6 : 1,
+                    }}
+                  >
+                    {primaryLabel}
+                  </button>
+                </div>
               </div>
 
               <div
@@ -616,7 +726,6 @@ export default function PongCanvas() {
                   gap: 16,
                 }}
               >
-                {/* Left: Controls */}
                 <div
                   style={{
                     borderRadius: 12,
@@ -652,7 +761,6 @@ export default function PongCanvas() {
                   </div>
                 </div>
 
-                {/* Right: AI settings / info, tinted by current AI mode */}
                 <div
                   style={{
                     borderRadius: 12,
@@ -729,8 +837,8 @@ export default function PongCanvas() {
         </div>
       )}
 
-      {/* --- POST-GAME OVERLAY --- */}
-      {completed && (
+      {/* POST-GAME / POST-TERMINATE OVERLAY */}
+      {(completed || terminated) && (
         <div
           style={{
             position: "absolute",
@@ -755,7 +863,7 @@ export default function PongCanvas() {
             }}
           >
             <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>
-              Match Over
+              {terminated ? "Match Terminated" : "Match Over"}
             </div>
             <div style={{ opacity: 0.9, marginBottom: 14 }}>
               Final Score:{" "}
@@ -763,25 +871,124 @@ export default function PongCanvas() {
                 {stateRef.current.score[0]} - {stateRef.current.score[1]}
               </b>
             </div>
-            <button
-              onClick={onPrimaryClick}
-              disabled={primaryDisabled}
-              style={{
-                background: "#10B981",
-                border: "none",
-                padding: "10px 20px",
-                color: "white",
-                fontSize: 16,
-                cursor: primaryDisabled ? "not-allowed" : "pointer",
-                borderRadius: 10,
-                fontWeight: 900,
-                opacity: primaryDisabled ? 0.6 : 1,
-              }}
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button
+                onClick={goToMenu}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  color: "#fff",
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                ← Menu
+              </button>
+              <button
+                onClick={onPrimaryClick}
+                disabled={primaryDisabled}
+                style={{
+                  background: terminated ? "#EF4444" : "#10B981",
+                  border: "none",
+                  padding: "10px 20px",
+                  color: "white",
+                  fontSize: 16,
+                  cursor: primaryDisabled ? "not-allowed" : "pointer",
+                  borderRadius: 10,
+                  fontWeight: 900,
+                  opacity: primaryDisabled ? 0.6 : 1,
+                }}
+              >
+                {completing
+                  ? t.game.mainMenu.savingResult
+                  : t.game.mainMenu.startNewGame}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM TERMINATE MODAL (clicking backdrop resumes) */}
+      {showConfirmTerminate && (
+        <div
+          onClick={() => setShowConfirmTerminate(false)} // resume via effect
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(92vw, 520px)",
+              borderRadius: 16,
+              background: "#121416",
+              border: "1px solid rgba(255,255,255,0.08)",
+              padding: 20,
+              color: "#fff",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-title"
+          >
+            <div
+              id="confirm-title"
+              style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}
             >
-              {completing
-                ? t.game.mainMenu.savingResult
-                : t.game.mainMenu.startNewGame}
-            </button>
+              Terminate this match?
+            </div>
+            <div style={{ opacity: 0.9, marginBottom: 16, lineHeight: 1.5 }}>
+              The current score{" "}
+              <b>
+                {stateRef.current.score[0]} - {stateRef.current.score[1]}
+              </b>{" "}
+              will be saved and the game will be marked as <b>Terminated</b>.
+              This cannot be undone.
+            </div>
+            <div
+              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
+            >
+              <button
+                onClick={() => setShowConfirmTerminate(false)} // resume via effect
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  color: "#fff",
+                  padding: "8px 14px",
+                  borderRadius: 10,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setPausedForConfirm(false); // block resume
+                  setShowConfirmTerminate(false);
+                  void onTerminateClick();
+                }}
+                style={{
+                  background: "#EF4444",
+                  border: "none",
+                  color: "#fff",
+                  padding: "8px 14px",
+                  borderRadius: 10,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                Yes, terminate
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -907,7 +1114,7 @@ function render(
   if (isRightAI) {
     ctx.save();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(16,185,129,0.95)"; // emerald
+    ctx.strokeStyle = "rgba(16,185,129,0.95)";
     ctx.setLineDash([6, 4]);
     ctx.shadowColor = "rgba(16,185,129,0.6)";
     ctx.shadowBlur = 14;
@@ -915,7 +1122,6 @@ function render(
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // tiny "AI" badge near paddle
     const badgeW = 28,
       badgeH = 16;
     const bx = rightX - badgeW - 8;

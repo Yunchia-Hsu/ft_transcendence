@@ -1,8 +1,8 @@
+// apps/server/src/api/controllers/games.ts
 import type { Kysely } from "kysely";
 import type { DatabaseSchema, Game } from "infra/db/index.js";
 import { randomUUID } from "crypto";
 
-// ✅ db is now passed as the first argument
 export const startGame = async (
   db: Kysely<DatabaseSchema>,
   data: { player1: string; player2: string }
@@ -19,19 +19,16 @@ export const startGame = async (
     winner_id: null,
   };
 
-  // Create insert object without null values for SQLite compatibility
   const insertData = {
     game_id: newGame.game_id,
     player1: newGame.player1,
     player2: newGame.player2,
     score: newGame.score,
     status: newGame.status,
-    // Only include winner_id if it's not null
-    ...(newGame.winner_id && { winner_id: newGame.winner_id })
+    ...(newGame.winner_id && { winner_id: newGame.winner_id }),
   };
 
   await db.insertInto("games").values(insertData).execute();
-
   return newGame;
 };
 
@@ -67,11 +64,9 @@ export const makeMove = async (
     .executeTakeFirst();
 
   if (!game) return { ok: false, code: "GAME_NOT_FOUND" };
-
   if (playerId !== game.player1 && playerId !== game.player2) {
     return { ok: false, code: "PLAYER_NOT_IN_GAME" };
   }
-
   if (!["UP", "DOWN", "STAY"].includes(move)) {
     return { ok: false, code: "INVALID_MOVE" };
   }
@@ -83,12 +78,8 @@ export const listGames = async (
   filters?: { status?: string; player?: string }
 ): Promise<Game[]> => {
   let q = db.selectFrom("games").selectAll();
-
-  if (filters?.status) {
-    q = q.where("status", "=", filters.status);
-  }
+  if (filters?.status) q = q.where("status", "=", filters.status);
   if (filters?.player) {
-    // match either player1 or player2
     q = q.where((eb) =>
       eb.or([
         eb("player1", "=", filters.player!),
@@ -96,7 +87,6 @@ export const listGames = async (
       ])
     );
   }
-
   return await q.execute();
 };
 
@@ -115,11 +105,9 @@ export const completeGame = async (
     .executeTakeFirst();
 
   if (!game) return { ok: false, code: "GAME_NOT_FOUND" };
-  if (game.status === "Completed") {
+  if (game.status === "Completed")
     return { ok: false, code: "ALREADY_COMPLETED" };
-  }
 
-  // Update status (+ optional score)
   const newScore = body.score ?? game.score;
 
   let resolvedWinner: string | null = null;
@@ -139,7 +127,7 @@ export const completeGame = async (
 
   await db
     .updateTable("games")
-    .set({ status: "Completed", score: newScore, winner_id: resolvedWinner }) // ✅ set winner_id
+    .set({ status: "Completed", score: newScore, winner_id: resolvedWinner })
     .where("game_id", "=", gameId)
     .execute();
 
@@ -148,6 +136,45 @@ export const completeGame = async (
     .selectAll()
     .where("game_id", "=", gameId)
     .executeTakeFirst();
+  return { ok: true, game: updated as Game };
+};
 
+// ⬇️ NEW: terminateGame
+export const terminateGame = async (
+  db: Kysely<DatabaseSchema>,
+  gameId: string,
+  body: { score?: string }
+): Promise<
+  | { ok: true; game: Game }
+  | {
+      ok: false;
+      code: "GAME_NOT_FOUND" | "ALREADY_COMPLETED" | "ALREADY_TERMINATED";
+    }
+> => {
+  const game = await db
+    .selectFrom("games")
+    .selectAll()
+    .where("game_id", "=", gameId)
+    .executeTakeFirst();
+
+  if (!game) return { ok: false, code: "GAME_NOT_FOUND" };
+  if (game.status === "Completed")
+    return { ok: false, code: "ALREADY_COMPLETED" };
+  if (game.status === "Terminated")
+    return { ok: false, code: "ALREADY_TERMINATED" };
+
+  const newScore = body.score ?? game.score;
+
+  await db
+    .updateTable("games")
+    .set({ status: "Terminated", score: newScore, winner_id: null })
+    .where("game_id", "=", gameId)
+    .execute();
+
+  const updated = await db
+    .selectFrom("games")
+    .selectAll()
+    .where("game_id", "=", gameId)
+    .executeTakeFirst();
   return { ok: true, game: updated as Game };
 };
