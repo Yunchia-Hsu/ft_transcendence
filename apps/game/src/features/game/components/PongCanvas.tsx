@@ -40,94 +40,6 @@ interface AIDecision {
   usePowerUp: boolean;
   confidence: number;
 }
-//test AI
-function simpleAI(s: State): -1 | 0 | 1 {
-  const ballY = s.ball.y;
-  const paddleY = s.paddles[1];
-  const DEAD = 0.02; // deadzone to prevent shaking
-
-  if (paddleY < ballY - DEAD) return +1;
-  if (paddleY > ballY + DEAD) return -1;
-  return 0;
-}
-
-class SimplePongAI {
-  private lastUpdateTime: number = 0;
-  private updateInterval: number = 1000;
-  private targetY: number = 0.5;
-  private difficulty: number = 0.8;
-  private strategyMode: string = "adaptive";
-
-  constructor(difficulty: number = 0.8) {
-    this.difficulty = difficulty;
-  }
-
-  update(gameState: State, currentTime: number): AIDecision {
-    // update AI per sec
-    if (currentTime - this.lastUpdateTime >= this.updateInterval) {
-      this.calculateTarget(gameState);
-      this.lastUpdateTime = currentTime;
-    }
-
-    // calculate moving directions
-    const myPaddleY = gameState.paddles[1];
-    const diff = this.targetY - myPaddleY;
-    const deadzone = 0.03;
-
-    let direction: Direction = 0;
-    if (diff > deadzone) direction = 1;
-    else if (diff < -deadzone) direction = -1;
-
-    return {
-      direction,
-      usePowerUp: Math.random() < 0.05, // 5% 機率使用 power-up
-      confidence: this.difficulty * (1 - Math.abs(diff)),
-    };
-  }
-
-  private calculateTarget(gameState: State): void {
-    //預測球到達 AI 區域的 y 座標，並考慮邊界反彈。
-    const ball = gameState.ball;
-    const velocity = gameState.vel;
-
-    // 預測球的位置
-    if (velocity.x > 0) {
-      const timeToReach = (0.95 - ball.x) / velocity.x;
-      let predictedY = ball.y + velocity.y * timeToReach;
-
-      // 處理邊界反彈
-      if (predictedY < 0) predictedY = -predictedY;
-      if (predictedY > 1) predictedY = 2 - predictedY;
-
-      this.targetY = Math.max(0.1, Math.min(0.9, predictedY));
-    } else {
-      this.targetY = 0.5; // 球遠離時回到中央
-    }
-
-    // 根據難度添加誤差
-    const error = (1 - this.difficulty) * 0.1;
-    this.targetY += (Math.random() - 0.5) * error;
-  }
-
-  setDifficulty(difficulty: number): void {
-    this.difficulty = difficulty;
-    this.updateInterval = 1000 + (1 - difficulty) * 500;
-  }
-
-  getDebugInfo(): any {
-    //回傳 AI 的內部狀態（策略、目標、難度）。
-    return {
-      strategyMode: this.strategyMode,
-      targetY: this.targetY,
-      difficulty: this.difficulty,
-    };
-  }
-
-  reset(): void {
-    this.lastUpdateTime = 0;
-    this.targetY = 0.5;
-  }
-}
 
 export default function PongCanvas() {
   const t = useTranslations();
@@ -143,9 +55,6 @@ export default function PongCanvas() {
     scale: 1,
   });
 
-  // const stateRef = useRef<State>(createState());
-  // const input = useRef<InputTuple>([0, 0]);
-
   const aiOpponent = useRef<PongAI>(new PongAI(0.8));
   const stateRef = useRef<State>(createState());
   const aiDecision = useRef<AIDecision>({
@@ -158,7 +67,6 @@ export default function PongCanvas() {
   const [completed, setCompleted] = useState(false);
   const [completing, setCompleting] = useState(false);
 
-  const [state, setState] = useState<State>(createState());
   const input = useRef<InputTuple>([0, 0]);
   const trail = useRef<Vec[]>([]);
   const particles = useRef<Particle[]>([]);
@@ -166,12 +74,12 @@ export default function PongCanvas() {
 
   const [gameRunning, setGameRunning] = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState(0.8);
-  const [gameMode, setGameMode] = useState<"ai" | "human">("human"); // Default to human vs human
-  const [aiStrategy, setAiStrategy] = useState<string>("adaptive"); // Track AI strategy state
+  const [gameMode, setGameMode] = useState<"ai" | "human">("human"); // derived from backend
+  const [aiStrategy, setAiStrategy] = useState<string>("adaptive");
   const animationFrameId = useRef<number | null>(null);
   const didComplete = useRef(false);
 
-  // adjust AI difficulties
+  // adjust AI difficulty
   const handleDifficultyChange = (difficulty: number) => {
     setAiDifficulty(difficulty);
     aiOpponent.current.setDifficulty(difficulty);
@@ -180,7 +88,6 @@ export default function PongCanvas() {
   // Set up AI strategy change callback (only in AI mode)
   useEffect(() => {
     if (gameMode !== "ai") {
-      // Optional: clear UI when not in AI mode
       setAiStrategy("adaptive");
       return;
     }
@@ -189,28 +96,22 @@ export default function PongCanvas() {
     });
   }, [gameMode]);
 
-  // Detect game mode based on game data
+  // Detect game mode based on game data (source of truth)
   useEffect(() => {
     if (!gameId) return;
-
     const fetchGameMode = async () => {
       try {
         const gameData = await GamesApi.get(gameId);
         const isAIGame = gameData.player2 === "bot";
         setGameMode(isAIGame ? "ai" : "human");
-        console.log(
-          `Game mode detected: ${isAIGame ? "AI" : "Human vs Human"}`
-        );
-      } catch (error) {
-        console.error("Failed to fetch game data:", error);
+        // console.log(`Game mode detected: ${isAIGame ? "AI" : "Human vs Human"}`);
+      } catch {
         setGameMode("human");
       }
     };
-
     fetchGameMode();
   }, [gameId]);
 
-  // responsive, hi-DPI sizing
   /* ---------- load game meta (opponent) ---------- */
   useEffect(() => {
     let alive = true;
@@ -218,7 +119,6 @@ export default function PongCanvas() {
       if (!gameId) return;
       try {
         const g = await GamesApi.get(gameId);
-        // ✅ pick the other player as the opponent
         const other =
           userId && g
             ? g.player1 === userId
@@ -272,7 +172,6 @@ export default function PongCanvas() {
     };
   }, []);
 
-  // keyboard input
   /* ---------- keyboard ---------- */
   useEffect(() => {
     const keyMap: Record<string, { idx: 0 | 1; dir: Direction }> = {
@@ -285,8 +184,6 @@ export default function PongCanvas() {
     const handle = (e: KeyboardEvent, pressed: boolean): void => {
       const m = keyMap[e.key];
       if (!m) return;
-
-      //console.log(`Key ${e.key} ${pressed ? 'pressed' : 'released'}, setting input[${m.idx}] = ${pressed ? m.dir : 0}`);
 
       if (e.key === "Space" && pressed) {
         console.log("Human player activates power-up");
@@ -306,21 +203,18 @@ export default function PongCanvas() {
     };
   }, []);
 
-  // 簡化的 AI 輸入處理
+  /* ---------- AI input ---------- */
   const processAIInput = (currentTime: number): Direction => {
     aiDecision.current = aiOpponent.current.update(
       stateRef.current,
       currentTime
     );
-
     if (aiDecision.current.usePowerUp) {
       console.log("AI activates power-up");
     }
-
     return aiDecision.current.direction;
   };
 
-  // main game loop
   /* ---------- start a NEW game helper ---------- */
   const startNewGame = useCallback(async () => {
     if (!userId) return;
@@ -328,11 +222,16 @@ export default function PongCanvas() {
       opponentId && opponentId !== "bot" ? opponentId : (opponentId ?? userId);
     try {
       const g = await GamesApi.start({ player1: userId, player2: opponent });
+
       // reset local sim before navigating
-      setState(createState());
+      stateRef.current = createState();
       didComplete.current = false;
       setCompleted(false);
       setGameRunning(false);
+      trail.current = [];
+      particles.current = [];
+      flash.current = 0;
+
       navigate(`/game/${g.game_id}`);
     } catch (e) {
       console.error("Failed to start new game:", e);
@@ -364,11 +263,11 @@ export default function PongCanvas() {
       last = now;
 
       while (acc >= STEP) {
+        if (didComplete.current) break; // extra guard
+
         const leftInput = input.current[0];
         const rightInput: Direction =
-          gameMode === "ai"
-            ? processAIInput(now) // AI only when the game was started as AI
-            : input.current[1]; // Human controls on the right side
+          gameMode === "ai" ? processAIInput(now) : input.current[1];
 
         const ev = update(stateRef.current, [leftInput, rightInput]);
 
@@ -387,18 +286,15 @@ export default function PongCanvas() {
           );
         }
 
-        // 處理得分閃光效果
         if (ev.goal !== null) {
           flash.current = 1;
-
           if (gameMode === "ai") {
-            // Force AI to immediately analyze strategy after goal
-            console.log("Goal scored. AI analyzing strategy immediately...");
             aiOpponent.current.analyzeGameState(stateRef.current);
           }
         }
+
         // win: exact target to avoid off-by-one UI vs server
-        const [a, b] = state.score;
+        const [a, b] = stateRef.current.score; // ✅ read live state
         if (!didComplete.current && (a === WIN_SCORE || b === WIN_SCORE)) {
           didComplete.current = true;
           setGameRunning(false);
@@ -406,20 +302,17 @@ export default function PongCanvas() {
 
           const score = `${a}-${b}`;
           const winnerId =
-            a > b
-              ? (userId ?? "player1")
-              : opponentId && opponentId !== "bot"
-                ? opponentId
-                : (userId ?? "player2");
+            a > b ? (userId ?? "player1") : (opponentId ?? "player2");
 
           // render final frame, then stop RAF immediately
           render(
             ctx,
-            state,
+            stateRef.current, // ✅ final state
             trail.current,
             particles.current,
             flash.current,
-            view.current.scale
+            view.current.scale,
+            gameMode === "ai" ? aiDecision.current : null
           );
           if (animationFrameId.current !== null) {
             cancelAnimationFrame(animationFrameId.current);
@@ -430,9 +323,8 @@ export default function PongCanvas() {
             setCompleting(true);
             (async () => {
               const resp = await GamesApi.complete(gameId, { score, winnerId });
-              // ignore already-completed; log anything else unexpected
-              if (!resp.ok && resp.code !== "ALREADY_COMPLETED") {
-                console.error("complete failed:", resp.code);
+              if (!resp.ok && (resp as any).code !== "ALREADY_COMPLETED") {
+                console.error("complete failed:", (resp as any).code);
               }
               setCompleting(false);
             })();
@@ -467,27 +359,19 @@ export default function PongCanvas() {
         animationFrameId.current = null;
       }
     };
-    // }, [gameRunning, gameMode]);
-
-    // const handleButtonClick = () => {
-    //   if (gameRunning) {
-    //     stateRef.current = createState();
-    //     aiOpponent.current.reset();
-    //     trail.current = [];
-    //     particles.current = [];
-    //   }
-    //   setGameRunning((prev) => !prev);
-    // NOTE: do not include `state` in deps; it’s mutated per tick.
   }, [gameRunning, gameId, userId, opponentId, gameMode]);
 
   /* ---------- Start/Stop (or New Game) button ---------- */
   const onPrimaryClick = () => {
     if (!completed) {
       if (gameRunning) {
-        setState(createState());
+        // Reset the live sim when stopping mid-game
+        stateRef.current = createState();
         didComplete.current = false;
         aiOpponent.current.reset();
         trail.current = [];
+        particles.current = [];
+        flash.current = 0;
       }
       setGameRunning((prev) => !prev);
     } else {
@@ -517,7 +401,7 @@ export default function PongCanvas() {
     >
       <canvas ref={canvas} />
 
-      {/* 遊戲控制面板 */}
+      {/* 控制面板 */}
       <div
         style={{
           position: "absolute",
@@ -637,6 +521,8 @@ export default function PongCanvas() {
     </div>
   );
 }
+
+/* ------------ effects & rendering helpers ------------ */
 
 function spawnHitParticles(
   out: Particle[],
