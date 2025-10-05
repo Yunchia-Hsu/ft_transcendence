@@ -8,93 +8,22 @@ import { useTranslations } from "@/localization";
 import { GamesApi } from "@/shared/api";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 
-const BASE_W = 960;
-const BASE_H = 640;
-const WIN_SCORE = 11;
-
-const COLORS = {
-  bg1: "#B380A2",
-  bg2: "#6F7D90",
-  accent: "#EADCB3",
-  accent2: "#E4EFC7",
-  text: "#E4EFC7",
-} as const;
-
-type Direction = -1 | 0 | 1;
-type InputTuple = [Direction, Direction];
-
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  decay: number;
-  size: number;
-  light: boolean;
-}
-
-type ViewParams = { cssW: number; cssH: number; dpr: number; scale: number };
-
-type AIDecision = {
-  direction: Direction;
-  usePowerUp: boolean;
-  confidence: number;
-};
-
-// ---- Ball customisation types & helpers ----
-type BallSkin =
-  | { kind: "classic"; color: string; outline: boolean }
-  | { kind: "neon"; color: string }
-  | { kind: "emoji"; char: string; scale: number }
-  | { kind: "soccer" }
-  | { kind: "basketball" };
-
-function loadBallSkin(): BallSkin {
-  try {
-    const raw = localStorage.getItem("pong.ballSkin");
-    if (!raw) throw new Error("no skin");
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.kind) throw new Error("bad");
-    return parsed as BallSkin;
-  } catch {
-    return { kind: "classic", color: "#EADCB3", outline: false };
-  }
-}
-function saveBallSkin(skin: BallSkin) {
-  localStorage.setItem("pong.ballSkin", JSON.stringify(skin));
-}
-
-function getStrategyColors(mode: string) {
-  if (mode === "aggressive") {
-    return {
-      chipBg: "rgba(255,107,107,0.18)",
-      chipBorder: "#ff6b6b",
-      chipText: "#ff6b6b",
-      panelBg:
-        "linear-gradient(135deg, rgba(255,153,153,0.16), rgba(255,107,107,0.12))",
-      panelBorder: "rgba(255,107,107,0.45)",
-    };
-  }
-  if (mode === "defensive") {
-    return {
-      chipBg: "rgba(81,207,102,0.18)",
-      chipBorder: "#51cf66",
-      chipText: "#51cf66",
-      panelBg:
-        "linear-gradient(135deg, rgba(110,231,183,0.16), rgba(81,207,102,0.12))",
-      panelBorder: "rgba(81,207,102,0.45)",
-    };
-  }
-  return {
-    chipBg: "rgba(116,192,252,0.18)",
-    chipBorder: "#74c0fc",
-    chipText: "#74c0fc",
-    panelBg:
-      "linear-gradient(135deg, rgba(147,197,253,0.16), rgba(116,192,252,0.12))",
-    panelBorder: "rgba(116,192,252,0.45)",
-  };
-}
+import { BASE_W, BASE_H, WIN_SCORE } from "./PongConstants";
+import { loadBallSkin, saveBallSkin } from "./PongBallSkin";
+import { spawnHitParticles, stepParticles } from "./PongEffects";
+import { render } from "./PongRender";
+import type {
+  AIDecision,
+  BallSkin,
+  Direction,
+  InputTuple,
+  ViewParams,
+} from "./PongTypes";
+import { AIBadge, MenuButton, TerminateButton } from "./TopBars";
+import { PregameOverlay } from "./PregameOverlay";
+import { PostgameOverlay } from "./PostgameOverlay";
+import { ConfirmTerminateModal } from "./ConfirmTerminateModal";
+import { getStrategyColors } from "./PongConstants";
 
 export default function PongCanvas() {
   const t = useTranslations();
@@ -134,7 +63,7 @@ export default function PongCanvas() {
 
   const input = useRef<InputTuple>([0, 0]);
   const trail = useRef<Vec[]>([]);
-  const particles = useRef<Particle[]>([]);
+  const particles = useRef<any[]>([]);
   const flash = useRef<number>(0);
 
   const [gameRunning, setGameRunning] = useState(false);
@@ -218,17 +147,13 @@ export default function PongCanvas() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // If bracket already gave us the direct opponent nick, just use it.
       if (oppNickFromQS) {
         if (!cancelled) setOpponentNick(oppNickFromQS);
         return;
       }
-
-      // Otherwise try to resolve via game meta + p1Nick/p2Nick fallbacks
       try {
         if (!gameId) return;
         const g = await GamesApi.get(gameId);
-        // If we know which side we are, choose the *other* side's nick
         if (g.player1 === userId) {
           if (!cancelled) setOpponentNick(p2NickFromQS || null);
           return;
@@ -237,10 +162,8 @@ export default function PongCanvas() {
           if (!cancelled) setOpponentNick(p1NickFromQS || null);
           return;
         }
-        // Unknown side: prefer any nick we have; otherwise leave null
         if (!cancelled) setOpponentNick(p1NickFromQS || p2NickFromQS || null);
       } catch {
-        // ✅ Fix typo here
         setOpponentNick(p1NickFromQS || p2NickFromQS || null);
       }
     })();
@@ -289,14 +212,12 @@ export default function PongCanvas() {
       ArrowUp: { idx: 1, dir: -1 },
       ArrowDown: { idx: 1, dir: +1 },
     };
-
     const handle = (e: KeyboardEvent, pressed: boolean): void => {
       const m = keyMap[e.key];
       if (!m) return;
       if (e.key === "Space" && pressed) return;
       input.current[m.idx] = pressed ? m.dir : 0;
     };
-
     const down = (e: KeyboardEvent) => handle(e, true);
     const up = (e: KeyboardEvent) => handle(e, false);
     window.addEventListener("keydown", down);
@@ -332,9 +253,7 @@ export default function PongCanvas() {
       setGameRunning(false);
       setShowPregame(true);
       setCountdown(null);
-      trail.current = [];
-      particles.current = [];
-      flash.current = 0;
+      ((trail.current = []), (particles.current = []), (flash.current = 0));
 
       navigate(`/game/${g.game_id}${isTournamentFlow ? "?f=tournaments" : ""}`);
     } catch (e) {
@@ -350,9 +269,7 @@ export default function PongCanvas() {
         setGameRunning(false);
       }
     } else {
-      if (pausedForConfirm && !terminated && !completed) {
-        setGameRunning(true);
-      }
+      if (pausedForConfirm && !terminated && !completed) setGameRunning(true);
       setPausedForConfirm(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -362,9 +279,7 @@ export default function PongCanvas() {
   useEffect(() => {
     if (!showConfirmTerminate) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setShowConfirmTerminate(false);
-      }
+      if (e.key === "Escape") setShowConfirmTerminate(false);
       if (e.key === "Enter") {
         setPausedForConfirm(false);
         setShowConfirmTerminate(false);
@@ -469,16 +384,17 @@ export default function PongCanvas() {
           const winnerId =
             a > b ? (userId ?? "player1") : (opponentId ?? "player2");
 
-          render(
+          render({
             ctx,
-            stateRef.current,
-            trail.current,
-            particles.current,
-            flash.current,
-            view.current.scale,
-            gameMode === "ai",
-            ballSkin
-          );
+            s: stateRef.current,
+            trail: trail.current,
+            particles: particles.current,
+            flash: flash.current,
+            scale: view.current.scale,
+            isRightAI: gameMode === "ai",
+            skin: ballSkin,
+          });
+
           if (animationFrameId.current !== null) {
             cancelAnimationFrame(animationFrameId.current);
             animationFrameId.current = null;
@@ -502,16 +418,16 @@ export default function PongCanvas() {
         acc -= STEP;
       }
 
-      render(
+      render({
         ctx,
-        stateRef.current,
-        trail.current,
-        particles.current,
-        flash.current,
-        view.current.scale,
-        gameMode === "ai",
-        ballSkin
-      );
+        s: stateRef.current,
+        trail: trail.current,
+        particles: particles.current,
+        flash: flash.current,
+        scale: view.current.scale,
+        isRightAI: gameMode === "ai",
+        skin: ballSkin,
+      });
 
       animationFrameId.current = requestAnimationFrame(loop);
     };
@@ -584,7 +500,7 @@ export default function PongCanvas() {
   const primaryDisabled = completing;
   const strategyColors = getStrategyColors(aiStrategy);
 
-  // Opponent label (use nickname if passed from tournaments / resolved)
+  // Opponent label
   const opponentLabel =
     gameMode === "ai"
       ? oppNickFromQS || opponentNick || "bot"
@@ -612,939 +528,63 @@ export default function PongCanvas() {
     >
       <canvas ref={canvas} />
 
-      {/* In-game: AI badge */}
-      {gameRunning && gameMode === "ai" && (
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            left: "50%",
-            transform: `translateX(-50%) scale(${strategyPulse ? 1.05 : 1})`,
-            transition: "transform 200ms ease",
-            background: strategyColors.chipBg,
-            color: strategyColors.chipText,
-            border: `1px solid ${strategyColors.chipBorder}`,
-            borderRadius: 999,
-            padding: "4px 10px",
-            fontSize: 12,
-            fontWeight: 800,
-            letterSpacing: 0.4,
-            zIndex: 6,
-          }}
-          title="AI strategy adapts during the match"
-        >
-          AI: {aiStrategy}
-        </div>
-      )}
+      {/* In-game top bars */}
+      <AIBadge mode={gameMode} strategy={aiStrategy} pulse={strategyPulse} />
+      <MenuButton visible={gameRunning} onClick={goToMenu} />
+      <TerminateButton
+        visible={gameRunning}
+        onClick={() => setShowConfirmTerminate(true)}
+        disabled={completing}
+      />
 
-      {/* Back to Menu */}
-      {gameRunning && (
-        <button
-          onClick={goToMenu}
-          style={{
-            position: "absolute",
-            top: 12,
-            left: 12,
-            background: "rgba(255,255,255,0.1)",
-            color: "#fff",
-            border: "1px solid rgba(255,255,255,0.25)",
-            borderRadius: 10,
-            padding: "8px 12px",
-            fontWeight: 700,
-            cursor: "pointer",
-            backdropFilter: "blur(6px)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-            zIndex: 6,
-          }}
-          title="Go back to the main menu"
-        >
-          ← Menu
-        </button>
-      )}
+      {/* PRE-GAME */}
+      <PregameOverlay
+        visible={
+          (showPregame || countdown !== null) && !completed && !terminated
+        }
+        countdown={countdown}
+        gameMode={gameMode}
+        aiStrategy={aiStrategy}
+        aiDifficulty={aiDifficulty}
+        onDifficulty={handleDifficultyChange}
+        onPrimary={onPrimaryClick}
+        primaryDisabled={primaryDisabled}
+        primaryLabel={primaryLabel}
+        goToMenu={goToMenu}
+        opponentLabel={opponentLabel}
+        ballSkin={ballSkin}
+        setBallSkin={setBallSkin}
+      />
 
-      {/* Terminate (opens confirm; game pauses automatically) */}
-      {gameRunning && (
-        <button
-          onClick={() => setShowConfirmTerminate(true)}
-          disabled={completing}
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            background: "#EF4444",
-            color: "#fff",
-            border: "none",
-            borderRadius: 10,
-            padding: "8px 12px",
-            fontWeight: 800,
-            cursor: completing ? "not-allowed" : "pointer",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-            zIndex: 6,
-          }}
-          title="Stop this match early and save as Terminated"
-        >
-          Terminate Match
-        </button>
-      )}
+      {/* POST-GAME / TERMINATED */}
+      <PostgameOverlay
+        visible={completed || terminated}
+        terminated={terminated}
+        scoreA={stateRef.current.score[0]}
+        scoreB={stateRef.current.score[1]}
+        goToMenu={goToMenu}
+        onPrimary={onPrimaryClick}
+        primaryDisabled={primaryDisabled}
+        primaryLabel={
+          completing
+            ? t.game.mainMenu.savingResult
+            : t.game.mainMenu.startNewGame
+        }
+        showStartNew={!isTournamentFlow}
+      />
 
-      {/* PRE-GAME OVERLAY */}
-      {(showPregame || countdown !== null) && !completed && !terminated && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              countdown !== null
-                ? "linear-gradient(135deg, #FFE29F 0%, #FFA99F 48%, #FAD0C4 100%)"
-                : "linear-gradient(135deg, #D8FFEE 0%, #E0EAFF 50%, #FFE6F7 100%)",
-            color: "#111",
-            display: "grid",
-            placeItems: "center",
-            transition: "opacity 200ms ease",
-            opacity: 1,
-            zIndex: 10,
-          }}
-        >
-          {countdown !== null ? (
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  fontSize: 94,
-                  fontWeight: 900,
-                  letterSpacing: 2,
-                  color: "#111",
-                  textShadow: "0 2px 0 rgba(255,255,255,0.5)",
-                }}
-              >
-                {countdown}
-              </div>
-              <div style={{ opacity: 0.85, marginTop: 12, fontSize: 18 }}>
-                Get ready…
-              </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                width: "min(92vw, 760px)",
-                borderRadius: 16,
-                background: "rgba(255,255,255,0.66)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                padding: 24,
-                backdropFilter: "blur(8px)",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 16,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span
-                    style={{ fontSize: 28, fontWeight: 900, color: "#111" }}
-                  >
-                    Pong
-                  </span>
-                  <span
-                    style={{
-                      padding: "4px 10px",
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 800,
-                      background:
-                        gameMode === "ai"
-                          ? strategyColors.chipBg
-                          : "rgba(99,102,241,0.18)",
-                      color:
-                        gameMode === "ai" ? strategyColors.chipText : "#6366F1",
-                      border:
-                        gameMode === "ai"
-                          ? `1px solid ${strategyColors.chipBorder}`
-                          : "1px solid #6366F1",
-                    }}
-                    title="Mode is based on how you started the match"
-                  >
-                    {gameMode === "ai" ? `vs AI • ${aiStrategy}` : "vs Human"}
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={goToMenu}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid rgba(0,0,0,0.2)",
-                      color: "#111",
-                      padding: "10px 16px",
-                      borderRadius: 10,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                    }}
-                  >
-                    ← Menu
-                  </button>
-                  <button
-                    onClick={onPrimaryClick}
-                    disabled={primaryDisabled}
-                    style={{
-                      background: "#FF8C00",
-                      border: "none",
-                      padding: "10px 20px",
-                      color: "white",
-                      fontSize: 16,
-                      cursor: primaryDisabled ? "not-allowed" : "pointer",
-                      borderRadius: 10,
-                      fontWeight: 900,
-                      opacity: primaryDisabled ? 0.6 : 1,
-                    }}
-                  >
-                    {primaryLabel}
-                  </button>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 16,
-                }}
-              >
-                {/* Left column - Controls */}
-                <div
-                  style={{
-                    borderRadius: 12,
-                    background: "rgba(0,0,0,0.04)",
-                    border: "1px solid rgba(0,0,0,0.08)",
-                    padding: 16,
-                  }}
-                >
-                  <div
-                    style={{ fontWeight: 800, marginBottom: 8, color: "#111" }}
-                  >
-                    Controls
-                  </div>
-                  <div style={{ fontSize: 14, lineHeight: 1.6, color: "#222" }}>
-                    <div>
-                      Player 1: <b>W / S</b>
-                    </div>
-                    {gameMode === "human" ? (
-                      <div>
-                        Player 2: <b>Arrow ↑ / ↓</b>
-                      </div>
-                    ) : (
-                      <div>
-                        Player 2: <b>AI controlled</b>
-                      </div>
-                    )}
-                    <div>
-                      Power-up: <b>Space</b>
-                    </div>
-                    <div>
-                      Target score: <b>{WIN_SCORE}</b>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right column - Settings + Ball */}
-                <div
-                  style={{
-                    borderRadius: 12,
-                    background:
-                      gameMode === "ai"
-                        ? strategyColors.panelBg
-                        : "rgba(0,0,0,0.04)",
-                    border:
-                      gameMode === "ai"
-                        ? `1px solid ${strategyColors.panelBorder}`
-                        : "1px solid rgba(0,0,0,0.08)",
-                    padding: 16,
-                  }}
-                >
-                  <div
-                    style={{ fontWeight: 800, marginBottom: 8, color: "#111" }}
-                  >
-                    {gameMode === "ai" ? "AI Settings" : "Match Info"}
-                  </div>
-
-                  {gameMode === "ai" ? (
-                    <>
-                      <label style={{ fontSize: 13, color: "#222" }}>
-                        Difficulty: <b>{aiDifficulty.toFixed(1)}</b>
-                      </label>
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="1"
-                        step="0.1"
-                        value={aiDifficulty}
-                        onChange={(e) =>
-                          handleDifficultyChange(parseFloat(e.target.value))
-                        }
-                        style={{ width: "100%", margin: "8px 0 12px" }}
-                      />
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 16,
-                          fontSize: 13,
-                          color: "#222",
-                        }}
-                      >
-                        <div>
-                          Strategy:{" "}
-                          <b
-                            style={{
-                              color: getStrategyColors(aiStrategy).chipText,
-                            }}
-                          >
-                            {aiStrategy}
-                          </b>
-                        </div>
-                        <div>
-                          Opponent: <b>{opponentLabel}</b>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ fontSize: 14, color: "#222" }}>
-                      Opponent: <b>{opponentLabel}</b>
-                    </div>
-                  )}
-
-                  {/* BALL CUSTOMISATION */}
-                  <div style={{ marginTop: 16 }}>
-                    <div
-                      style={{
-                        fontWeight: 800,
-                        marginBottom: 8,
-                        color: "#111",
-                      }}
-                    >
-                      Ball
-                    </div>
-
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <div
-                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-                      >
-                        {[
-                          { id: "classic", label: "Classic" },
-                          { id: "neon", label: "Neon" },
-                          { id: "emoji", label: "Emoji" },
-                          { id: "soccer", label: "Soccer" },
-                          { id: "basketball", label: "Basketball" },
-                        ].map((opt) => {
-                          const active =
-                            ballSkin.kind === (opt.id as BallSkin["kind"]);
-                          return (
-                            <button
-                              key={opt.id}
-                              onClick={() => {
-                                if (opt.id === "classic")
-                                  setBallSkin({
-                                    kind: "classic",
-                                    color: "#EADCB3",
-                                    outline: false,
-                                  });
-                                else if (opt.id === "neon")
-                                  setBallSkin({
-                                    kind: "neon",
-                                    color: "#74c0fc",
-                                  });
-                                else if (opt.id === "emoji")
-                                  setBallSkin({
-                                    kind: "emoji",
-                                    char: "🏓",
-                                    scale: 2.6,
-                                  });
-                                else if (opt.id === "soccer")
-                                  setBallSkin({ kind: "soccer" });
-                                else if (opt.id === "basketball")
-                                  setBallSkin({ kind: "basketball" });
-                              }}
-                              style={{
-                                padding: "6px 10px",
-                                borderRadius: 10,
-                                border: active
-                                  ? "2px solid #111"
-                                  : "1px solid rgba(0,0,0,0.2)",
-                                background: active
-                                  ? "rgba(0,0,0,0.06)"
-                                  : "rgba(0,0,0,0.03)",
-                                fontWeight: 800,
-                                cursor: "pointer",
-                                fontSize: 12,
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {ballSkin.kind === "classic" && (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 10,
-                            alignItems: "center",
-                          }}
-                        >
-                          <label style={{ fontSize: 12 }}>Color</label>
-                          <input
-                            type="color"
-                            value={ballSkin.color}
-                            onChange={(e) =>
-                              setBallSkin({
-                                ...ballSkin,
-                                color: e.target.value,
-                              })
-                            }
-                          />
-                          <label
-                            style={{
-                              fontSize: 12,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 6,
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={ballSkin.outline}
-                              onChange={(e) =>
-                                setBallSkin({
-                                  ...ballSkin,
-                                  outline: e.target.checked,
-                                })
-                              }
-                            />
-                            Outline
-                          </label>
-                        </div>
-                      )}
-
-                      {ballSkin.kind === "neon" && (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 10,
-                            alignItems: "center",
-                          }}
-                        >
-                          <label style={{ fontSize: 12 }}>Glow</label>
-                          <input
-                            type="color"
-                            value={ballSkin.color}
-                            onChange={(e) =>
-                              setBallSkin({
-                                ...ballSkin,
-                                color: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      )}
-
-                      {ballSkin.kind === "emoji" && (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 10,
-                            alignItems: "center",
-                          }}
-                        >
-                          <label style={{ fontSize: 12 }}>Emoji</label>
-                          <input
-                            style={{
-                              border: "1px solid rgba(0,0,0,0.2)",
-                              borderRadius: 8,
-                              padding: "6px 10px",
-                              width: 80,
-                            }}
-                            value={ballSkin.char}
-                            onChange={(e) =>
-                              setBallSkin({
-                                ...ballSkin,
-                                char: e.target.value.slice(0, 2),
-                              })
-                            }
-                            placeholder="🏓"
-                          />
-                          <label style={{ fontSize: 12 }}>Size</label>
-                          <input
-                            type="range"
-                            min={1.8}
-                            max={3.6}
-                            step={0.1}
-                            value={ballSkin.scale}
-                            onChange={(e) =>
-                              setBallSkin({
-                                ...ballSkin,
-                                scale: parseFloat(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* POST-GAME / POST-TERMINATE OVERLAY */}
-      {(completed || terminated) && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(0,0,0,0.9)",
-            color: "#fff",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 10,
-          }}
-        >
-          <div
-            style={{
-              width: "min(92vw, 640px)",
-              borderRadius: 16,
-              background: "rgba(16,16,16,0.7)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              padding: 24,
-              backdropFilter: "blur(6px)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>
-              {terminated ? "Match Terminated" : "Match Over"}
-            </div>
-            <div style={{ opacity: 0.9, marginBottom: 14 }}>
-              Final Score:{" "}
-              <b>
-                {stateRef.current.score[0]} - {stateRef.current.score[1]}
-              </b>
-            </div>
-
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button
-                onClick={goToMenu}
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  color: "#fff",
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                ← Menu
-              </button>
-
-              {!isTournamentFlow && (
-                <button
-                  onClick={onPrimaryClick}
-                  disabled={primaryDisabled}
-                  style={{
-                    background: terminated ? "#EF4444" : "#10B981",
-                    border: "none",
-                    padding: "10px 20px",
-                    color: "white",
-                    fontSize: 16,
-                    cursor: primaryDisabled ? "not-allowed" : "pointer",
-                    borderRadius: 10,
-                    fontWeight: 900,
-                    opacity: primaryDisabled ? 0.6 : 1,
-                  }}
-                >
-                  {completing
-                    ? t.game.mainMenu.savingResult
-                    : t.game.mainMenu.startNewGame}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CONFIRM TERMINATE MODAL */}
-      {showConfirmTerminate && (
-        <div
-          onClick={() => setShowConfirmTerminate(false)}
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(92vw, 520px)",
-              borderRadius: 16,
-              background: "#121416",
-              border: "1px solid rgba(255,255,255,0.08)",
-              padding: 20,
-              color: "#fff",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
-            }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="confirm-title"
-          >
-            <div
-              id="confirm-title"
-              style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}
-            >
-              Terminate this match?
-            </div>
-            <div style={{ opacity: 0.9, marginBottom: 16, lineHeight: 1.5 }}>
-              The current score{" "}
-              <b>
-                {stateRef.current.score[0]} - {stateRef.current.score[1]}
-              </b>{" "}
-              will be saved and the game will be marked as <b>Terminated</b>.
-              This cannot be undone.
-            </div>
-            <div
-              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
-            >
-              <button
-                onClick={() => setShowConfirmTerminate(false)}
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgba(255,255,255,0.25)",
-                  color: "#fff",
-                  padding: "8px 14px",
-                  borderRadius: 10,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setPausedForConfirm(false);
-                  setShowConfirmTerminate(false);
-                  void onTerminateClick();
-                }}
-                style={{
-                  background: "#EF4444",
-                  border: "none",
-                  color: "#fff",
-                  padding: "8px 14px",
-                  borderRadius: 10,
-                  fontWeight: 900,
-                  cursor: "pointer",
-                }}
-              >
-                Yes, terminate
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* CONFIRM TERMINATE */}
+      <ConfirmTerminateModal
+        visible={showConfirmTerminate}
+        scoreA={stateRef.current.score[0]}
+        scoreB={stateRef.current.score[1]}
+        onCancel={() => setShowConfirmTerminate(false)}
+        onConfirm={() => {
+          setPausedForConfirm(false);
+          setShowConfirmTerminate(false);
+          void onTerminateClick();
+        }}
+      />
     </div>
   );
-}
-
-/* ------------ effects & rendering helpers ------------ */
-
-function spawnHitParticles(
-  out: Particle[],
-  x: number,
-  y: number,
-  side: 0 | 1
-): void {
-  const count = 16;
-  const baseVx = side === 0 ? 0.8 : -0.8;
-  for (let i = 0; i < count; i += 1) {
-    const ang = ((Math.random() - 0.5) * Math.PI) / 2;
-    const speed = 0.2 + Math.random() * 0.5;
-    const vx = baseVx * speed + Math.cos(ang) * 0.1;
-    const vy = Math.sin(ang) * 0.6 * speed;
-    out.push({
-      x,
-      y,
-      vx,
-      vy,
-      life: 1,
-      decay: 1.8 + Math.random() * 0.6,
-      size: 3 + Math.random() * 2,
-      light: Math.random() > 0.5,
-    });
-  }
-}
-
-function stepParticles(arr: Particle[], dt: number): void {
-  for (let i = arr.length - 1; i >= 0; i -= 1) {
-    const p = arr[i];
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.vy += 0.3 * dt;
-    p.life -= p.decay * dt;
-    if (p.life <= 0) arr.splice(i, 1);
-  }
-}
-
-function render(
-  ctx: CanvasRenderingContext2D,
-  s: State,
-  trail: readonly Vec[],
-  particles: readonly Particle[],
-  flash: number,
-  scale: number,
-  isRightAI: boolean,
-  skin: BallSkin
-): void {
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
-
-  const w = BASE_W,
-    h = BASE_H;
-
-  // bg
-  const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, COLORS.bg1);
-  g.addColorStop(1, COLORS.bg2);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-
-  // center dashed divider
-  ctx.save();
-  ctx.fillStyle = COLORS.accent2;
-  const segH = 16,
-    gap = 16,
-    midX = w / 2 - 2;
-  for (let y = 0; y < h; y += segH + gap) {
-    roundRect(ctx, midX, y, 4, segH, 2);
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // ball trail
-  const trailColor = skin.kind === "neon" ? COLORS.accent : COLORS.accent2;
-  for (let i = 0; i < trail.length; i += 1) {
-    const t = i / trail.length;
-    ctx.fillStyle = rgbaHex(trailColor, t * 0.6);
-    const pos = trail[i];
-    ctx.beginPath();
-    ctx.arc(pos.x * w, pos.y * h, 6 * t + 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // particles
-  for (const p of particles) {
-    const col = p.light ? COLORS.accent : COLORS.accent2;
-    ctx.fillStyle = rgbaHex(col, Math.max(0, Math.min(1, p.life)));
-    ctx.beginPath();
-    ctx.arc(p.x * w, p.y * h, p.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // paddles
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = 10;
-
-  // LEFT
-  ctx.fillStyle = COLORS.text;
-  const leftX = 18;
-  const leftY = s.paddles[0] * h - h * 0.1;
-  const leftW = 12;
-  const leftH = h * 0.2;
-  roundRect(ctx, leftX, leftY, leftW, leftH, 6);
-  ctx.fill();
-
-  // RIGHT
-  ctx.fillStyle = COLORS.text;
-  const rightX = w - 30;
-  const rightY = s.paddles[1] * h - h * 0.1;
-  const rightW = 12;
-  const rightH = h * 0.2;
-  roundRect(ctx, rightX, rightY, rightW, rightH, 6);
-  ctx.fill();
-
-  // AI marker
-  if (isRightAI) {
-    ctx.save();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(16,185,129,0.95)";
-    ctx.setLineDash([6, 4]);
-    ctx.shadowColor = "rgba(16,185,129,0.6)";
-    ctx.shadowBlur = 14;
-    roundRect(ctx, rightX - 4, rightY - 4, rightW + 8, rightH + 8, 8);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    const badgeW = 28,
-      badgeH = 16;
-    const bx = rightX - badgeW - 8;
-    const by = rightY - badgeH - 6;
-    ctx.fillStyle = "rgba(16,185,129,0.95)";
-    roundRect(ctx, bx, by, badgeW, badgeH, 8);
-    ctx.fill();
-
-    ctx.fillStyle = "#071409";
-    ctx.font = "bold 10px system-ui, ui-monospace, monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("AI", bx + badgeW / 2, by + badgeH / 2);
-    ctx.restore();
-  }
-
-  ctx.restore();
-
-  // ball (skin aware)
-  const ballX = s.ball.x * w;
-  const ballY = s.ball.y * h;
-  const baseR = 7;
-  drawBall(ctx, ballX, ballY, baseR, skin);
-
-  // score
-  ctx.fillStyle = COLORS.text;
-  ctx.font = "600 48px system-ui, ui-monospace, monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText(String(s.score[0]), w / 2 - 80, 64);
-  ctx.fillText(String(s.score[1]), w / 2 + 80, 64);
-
-  // flash
-  if (flash > 0) {
-    ctx.fillStyle = rgbaHex(COLORS.accent, flash * 0.35);
-    ctx.fillRect(0, 0, w, h);
-  }
-}
-
-function drawBall(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  r: number,
-  skin: BallSkin
-) {
-  if (skin.kind === "emoji") {
-    ctx.save();
-    ctx.font = `${Math.round(r * (skin.scale ?? 2.6))}px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(0,0,0,0.25)";
-    ctx.shadowBlur = 6;
-    ctx.fillText(skin.char || "🏓", x, y + 1);
-    ctx.restore();
-    return;
-  }
-
-  if (skin.kind === "neon") {
-    ctx.save();
-    ctx.shadowColor = skin.color;
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = skin.color;
-    ctx.beginPath();
-    ctx.arc(x, y, r + 1.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    return;
-  }
-
-  if (skin.kind === "basketball") {
-    ctx.save();
-    ctx.fillStyle = "#D97706";
-    ctx.beginPath();
-    ctx.arc(x, y, r + 1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#1F2937";
-    ctx.lineWidth = 1.25;
-    ctx.beginPath();
-    ctx.arc(x, y, r + 1, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x, y, r + 0.6, -Math.PI / 2, Math.PI / 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x, y, r + 0.6, Math.PI / 2, -Math.PI / 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x - (r + 1), y);
-    ctx.lineTo(x + (r + 1), y);
-    ctx.stroke();
-    ctx.restore();
-    return;
-  }
-
-  if (skin.kind === "soccer") {
-    ctx.save();
-    ctx.fillStyle = "#FFFFFF";
-    ctx.beginPath();
-    ctx.arc(x, y, r + 1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#1F2937";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(x, y, r + 0.5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x - (r + 1), y);
-    ctx.lineTo(x + (r + 1), y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, y - (r + 1));
-    ctx.lineTo(x, y + (r + 1));
-    ctx.stroke();
-    ctx.restore();
-    return;
-  }
-
-  // classic
-  ctx.save();
-  const color = skin.kind === "classic" ? skin.color : "#EADCB3";
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-  if (skin.kind === "classic" && skin.outline) {
-    ctx.strokeStyle = "rgba(0,0,0,0.45)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-function rgbaHex(hex: string, alpha: number): string {
-  const v = hex.startsWith("#") ? hex.slice(1) : hex;
-  const r = parseInt(v.slice(0, 2), 16);
-  const g = parseInt(v.slice(2, 4), 16);
-  const b = parseInt(v.slice(4, 6), 16);
-  const a = Math.max(0, Math.min(1, alpha));
-  return `rgba(${r},${g},${b},${a})`;
 }
