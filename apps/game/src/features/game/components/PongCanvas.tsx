@@ -1,3 +1,4 @@
+// apps/game/src/features/game/components/PongCanvas.tsx
 import { PongAI } from "./AIOpponent.js";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -35,10 +36,43 @@ interface Particle {
 
 type ViewParams = { cssW: number; cssH: number; dpr: number; scale: number };
 
-interface AIDecisionUI {
+type AIDecision = {
   direction: Direction;
   usePowerUp: boolean;
-  confidence: number;
+  confidence: number; // kept internally; not shown in UI
+};
+
+// Nice, soft colors per AI strategy
+function getStrategyColors(mode: string) {
+  if (mode === "aggressive") {
+    return {
+      chipBg: "rgba(255,107,107,0.18)",
+      chipBorder: "#ff6b6b",
+      chipText: "#ff6b6b",
+      panelBg:
+        "linear-gradient(135deg, rgba(255,153,153,0.16), rgba(255,107,107,0.12))",
+      panelBorder: "rgba(255,107,107,0.45)",
+    };
+  }
+  if (mode === "defensive") {
+    return {
+      chipBg: "rgba(81,207,102,0.18)",
+      chipBorder: "#51cf66",
+      chipText: "#51cf66",
+      panelBg:
+        "linear-gradient(135deg, rgba(110,231,183,0.16), rgba(81,207,102,0.12))",
+      panelBorder: "rgba(81,207,102,0.45)",
+    };
+  }
+  // adaptive
+  return {
+    chipBg: "rgba(116,192,252,0.18)",
+    chipBorder: "#74c0fc",
+    chipText: "#74c0fc",
+    panelBg:
+      "linear-gradient(135deg, rgba(147,197,253,0.16), rgba(116,192,252,0.12))",
+    panelBorder: "rgba(116,192,252,0.45)",
+  };
 }
 
 export default function PongCanvas() {
@@ -57,7 +91,7 @@ export default function PongCanvas() {
 
   const aiOpponent = useRef<PongAI>(new PongAI(0.8));
   const stateRef = useRef<State>(createState());
-  const aiDecision = useRef<AIDecisionUI>({
+  const aiDecision = useRef<AIDecision>({
     direction: 0,
     usePowerUp: false,
     confidence: 0,
@@ -84,6 +118,9 @@ export default function PongCanvas() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownTimer = useRef<number | null>(null);
 
+  // pulse when AI strategy changes
+  const [strategyPulse, setStrategyPulse] = useState(0);
+
   // adjust AI difficulty
   const handleDifficultyChange = (difficulty: number) => {
     setAiDifficulty(difficulty);
@@ -98,10 +135,12 @@ export default function PongCanvas() {
     }
     aiOpponent.current.setOnStrategyChange((strategy: string) => {
       setAiStrategy(strategy);
+      setStrategyPulse(1);
+      setTimeout(() => setStrategyPulse(0), 500);
     });
   }, [gameMode]);
 
-  // Detect game mode based on game data (source of truth)
+  // Detect game mode from backend
   useEffect(() => {
     if (!gameId) return;
     const fetchGameMode = async () => {
@@ -300,14 +339,14 @@ export default function PongCanvas() {
         }
 
         // win: exact target to avoid off-by-one UI vs server
-        const [a, b] = stateRef.current.score; // ✅ live state
+        const [a, b] = stateRef.current.score; // live state
         if (!didComplete.current && (a === WIN_SCORE || b === WIN_SCORE)) {
           didComplete.current = true;
           setGameRunning(false);
           setCompleted(true);
 
           const score = `${a}-${b}`;
-          // ✅ If right/player2 wins, use opponentId (may be "bot"). If left wins, use userId.
+          // If right/player2 wins, use opponentId (may be "bot"). If left wins, use userId.
           const winnerId =
             a > b ? (userId ?? "player1") : (opponentId ?? "player2");
 
@@ -319,7 +358,7 @@ export default function PongCanvas() {
             particles.current,
             flash.current,
             view.current.scale,
-            gameMode === "ai" ? aiDecision.current : null
+            gameMode === "ai"
           );
           if (animationFrameId.current !== null) {
             cancelAnimationFrame(animationFrameId.current);
@@ -352,7 +391,7 @@ export default function PongCanvas() {
         particles.current,
         flash.current,
         view.current.scale,
-        gameMode === "ai" ? aiDecision.current : null
+        gameMode === "ai"
       );
 
       animationFrameId.current = requestAnimationFrame(loop);
@@ -368,9 +407,8 @@ export default function PongCanvas() {
     };
   }, [gameRunning, gameId, userId, opponentId, gameMode]);
 
-  /* ---------- Start/Stop ---------- */
+  /* ---------- Start / Countdown ---------- */
   const onPrimaryClick = () => {
-    // This button only appears in overlays now
     if (completed) {
       void startNewGame();
       return;
@@ -426,6 +464,8 @@ export default function PongCanvas() {
 
   const primaryDisabled = completing;
 
+  const strategyColors = getStrategyColors(aiStrategy);
+
   return (
     <div
       style={{
@@ -440,14 +480,42 @@ export default function PongCanvas() {
     >
       <canvas ref={canvas} />
 
-      {/* --- PRE-GAME OVERLAY (black screen with info) --- */}
+      {/* --- IN-GAME: tiny AI MODE badge (only when vs AI & running) --- */}
+      {gameRunning && gameMode === "ai" && (
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            left: "50%",
+            transform: `translateX(-50%) scale(${strategyPulse ? 1.05 : 1})`,
+            transition: "transform 200ms ease",
+            background: strategyColors.chipBg,
+            color: strategyColors.chipText,
+            border: `1px solid ${strategyColors.chipBorder}`,
+            borderRadius: 999,
+            padding: "4px 10px",
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: 0.4,
+            zIndex: 5,
+          }}
+          title="AI strategy adapts during the match"
+        >
+          AI: {aiStrategy}
+        </div>
+      )}
+
+      {/* --- PRE-GAME OVERLAY (cheerful gradient + info) --- */}
       {(showPregame || countdown !== null) && !completed && (
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "#000",
-            color: "#fff",
+            background:
+              countdown !== null
+                ? "linear-gradient(135deg, #FFE29F 0%, #FFA99F 48%, #FAD0C4 100%)"
+                : "linear-gradient(135deg, #D8FFEE 0%, #E0EAFF 50%, #FFE6F7 100%)",
+            color: "#111",
             display: "grid",
             placeItems: "center",
             transition: "opacity 200ms ease",
@@ -457,23 +525,31 @@ export default function PongCanvas() {
         >
           {countdown !== null ? (
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 84, fontWeight: 800, letterSpacing: 2 }}>
+              <div
+                style={{
+                  fontSize: 94,
+                  fontWeight: 900,
+                  letterSpacing: 2,
+                  color: "#111",
+                  textShadow: "0 2px 0 rgba(255,255,255,0.5)",
+                }}
+              >
                 {countdown}
               </div>
-              <div style={{ opacity: 0.8, marginTop: 12, fontSize: 18 }}>
+              <div style={{ opacity: 0.85, marginTop: 12, fontSize: 18 }}>
                 Get ready…
               </div>
             </div>
           ) : (
             <div
               style={{
-                width: "min(92vw, 720px)",
+                width: "min(92vw, 760px)",
                 borderRadius: 16,
-                background: "rgba(16,16,16,0.7)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.66)",
+                border: "1px solid rgba(0,0,0,0.08)",
                 padding: 24,
-                backdropFilter: "blur(6px)",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+                backdropFilter: "blur(8px)",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
               }}
             >
               <div
@@ -481,27 +557,36 @@ export default function PongCanvas() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: 14,
+                  marginBottom: 16,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 28, fontWeight: 800 }}>Pong</span>
+                  <span
+                    style={{ fontSize: 28, fontWeight: 900, color: "#111" }}
+                  >
+                    Pong
+                  </span>
+                  {/* Mode chip with colored BG */}
                   <span
                     style={{
-                      padding: "2px 10px",
+                      padding: "4px 10px",
                       borderRadius: 999,
                       fontSize: 12,
-                      fontWeight: 700,
+                      fontWeight: 800,
                       background:
                         gameMode === "ai"
-                          ? "rgba(16,185,129,0.2)"
-                          : "rgba(99,102,241,0.2)",
-                      color: gameMode === "ai" ? "#10B981" : "#6366F1",
-                      border: `1px solid ${gameMode === "ai" ? "#10B981" : "#6366F1"}`,
+                          ? strategyColors.chipBg
+                          : "rgba(99,102,241,0.18)",
+                      color:
+                        gameMode === "ai" ? strategyColors.chipText : "#6366F1",
+                      border:
+                        gameMode === "ai"
+                          ? `1px solid ${strategyColors.chipBorder}`
+                          : "1px solid #6366F1",
                     }}
                     title="Mode is based on how you started the match"
                   >
-                    {gameMode === "ai" ? "vs AI" : "vs Human"}
+                    {gameMode === "ai" ? `vs AI • ${aiStrategy}` : "vs Human"}
                   </span>
                 </div>
 
@@ -516,7 +601,7 @@ export default function PongCanvas() {
                     fontSize: 16,
                     cursor: primaryDisabled ? "not-allowed" : "pointer",
                     borderRadius: 10,
-                    fontWeight: 800,
+                    fontWeight: 900,
                     opacity: primaryDisabled ? 0.6 : 1,
                   }}
                 >
@@ -535,17 +620,17 @@ export default function PongCanvas() {
                 <div
                   style={{
                     borderRadius: 12,
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgba(0,0,0,0.04)",
+                    border: "1px solid rgba(0,0,0,0.08)",
                     padding: 16,
                   }}
                 >
                   <div
-                    style={{ fontWeight: 700, marginBottom: 8, opacity: 0.9 }}
+                    style={{ fontWeight: 800, marginBottom: 8, color: "#111" }}
                   >
                     Controls
                   </div>
-                  <div style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.9 }}>
+                  <div style={{ fontSize: 14, lineHeight: 1.6, color: "#222" }}>
                     <div>
                       Player 1: <b>W / S</b>
                     </div>
@@ -567,24 +652,30 @@ export default function PongCanvas() {
                   </div>
                 </div>
 
-                {/* Right: AI settings / info */}
+                {/* Right: AI settings / info, tinted by current AI mode */}
                 <div
                   style={{
                     borderRadius: 12,
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    background:
+                      gameMode === "ai"
+                        ? strategyColors.panelBg
+                        : "rgba(0,0,0,0.04)",
+                    border:
+                      gameMode === "ai"
+                        ? `1px solid ${strategyColors.panelBorder}`
+                        : "1px solid rgba(0,0,0,0.08)",
                     padding: 16,
                   }}
                 >
                   <div
-                    style={{ fontWeight: 700, marginBottom: 8, opacity: 0.9 }}
+                    style={{ fontWeight: 800, marginBottom: 8, color: "#111" }}
                   >
                     {gameMode === "ai" ? "AI Settings" : "Match Info"}
                   </div>
 
                   {gameMode === "ai" ? (
                     <>
-                      <label style={{ fontSize: 13, opacity: 0.9 }}>
+                      <label style={{ fontSize: 13, color: "#222" }}>
                         Difficulty: <b>{aiDifficulty.toFixed(1)}</b>
                       </label>
                       <input
@@ -603,34 +694,26 @@ export default function PongCanvas() {
                           display: "flex",
                           gap: 16,
                           fontSize: 13,
-                          opacity: 0.9,
+                          color: "#222",
                         }}
                       >
                         <div>
                           Strategy:{" "}
                           <b
                             style={{
-                              color:
-                                aiStrategy === "aggressive"
-                                  ? "#ff6b6b"
-                                  : aiStrategy === "defensive"
-                                    ? "#51cf66"
-                                    : "#74c0fc",
+                              color: getStrategyColors(aiStrategy).chipText,
                             }}
                           >
                             {aiStrategy}
                           </b>
                         </div>
                         <div>
-                          Confidence:{" "}
-                          <b>
-                            {Math.round(aiDecision.current.confidence * 100)}%
-                          </b>
+                          Opponent: <b>{opponentId ?? "bot"}</b>
                         </div>
                       </div>
                     </>
                   ) : (
-                    <div style={{ fontSize: 14, opacity: 0.9 }}>
+                    <div style={{ fontSize: 14, color: "#222" }}>
                       Opponent:{" "}
                       <b>
                         {opponentId && opponentId !== userId
@@ -691,7 +774,7 @@ export default function PongCanvas() {
                 fontSize: 16,
                 cursor: primaryDisabled ? "not-allowed" : "pointer",
                 borderRadius: 10,
-                fontWeight: 800,
+                fontWeight: 900,
                 opacity: primaryDisabled ? 0.6 : 1,
               }}
             >
@@ -752,13 +835,14 @@ function render(
   particles: readonly Particle[],
   flash: number,
   scale: number,
-  aiInfo?: AIDecisionUI | null
+  isRightAI: boolean
 ): void {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   const w = BASE_W,
     h = BASE_H;
 
+  // bg
   const g = ctx.createLinearGradient(0, 0, w, h);
   g.addColorStop(0, COLORS.bg1);
   g.addColorStop(1, COLORS.bg2);
@@ -800,21 +884,54 @@ function render(
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.35)";
   ctx.shadowBlur = 10;
+
+  // LEFT (human)
   ctx.fillStyle = COLORS.text;
-  roundRect(ctx, 18, s.paddles[0] * h - h * 0.1, 12, h * 0.2, 6);
+  const leftX = 18;
+  const leftY = s.paddles[0] * h - h * 0.1;
+  const leftW = 12;
+  const leftH = h * 0.2;
+  roundRect(ctx, leftX, leftY, leftW, leftH, 6);
   ctx.fill();
 
-  // AI paddle with confidence indicator (in AI mode only)
-  if (aiInfo) {
-    const confidenceColor = `rgba(255, ${Math.floor(255 * aiInfo.confidence)}, 0, 0.5)`;
-    ctx.fillStyle = confidenceColor;
-    roundRect(ctx, w - 35, s.paddles[1] * h - h * 0.1, 17, h * 0.2, 6);
+  // RIGHT (may be AI)
+  ctx.fillStyle = COLORS.text;
+  const rightX = w - 30;
+  const rightY = s.paddles[1] * h - h * 0.1;
+  const rightW = 12;
+  const rightH = h * 0.2;
+  roundRect(ctx, rightX, rightY, rightW, rightH, 6);
+  ctx.fill();
+
+  // AI marker for right paddle (only when vs AI)
+  if (isRightAI) {
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(16,185,129,0.95)"; // emerald
+    ctx.setLineDash([6, 4]);
+    ctx.shadowColor = "rgba(16,185,129,0.6)";
+    ctx.shadowBlur = 14;
+    roundRect(ctx, rightX - 4, rightY - 4, rightW + 8, rightH + 8, 8);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // tiny "AI" badge near paddle
+    const badgeW = 28,
+      badgeH = 16;
+    const bx = rightX - badgeW - 8;
+    const by = rightY - badgeH - 6;
+    ctx.fillStyle = "rgba(16,185,129,0.95)";
+    roundRect(ctx, bx, by, badgeW, badgeH, 8);
     ctx.fill();
+
+    ctx.fillStyle = "#071409";
+    ctx.font = "bold 10px system-ui, ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("AI", bx + badgeW / 2, by + badgeH / 2);
+    ctx.restore();
   }
 
-  ctx.fillStyle = COLORS.text;
-  roundRect(ctx, w - 30, s.paddles[1] * h - h * 0.1, 12, h * 0.2, 6);
-  ctx.fill();
   ctx.restore();
 
   // ball
@@ -830,15 +947,6 @@ function render(
   ctx.textBaseline = "alphabetic";
   ctx.fillText(String(s.score[0]), w / 2 - 80, 64);
   ctx.fillText(String(s.score[1]), w / 2 + 80, 64);
-
-  // AI movement arrow (debug)
-  if (aiInfo && aiInfo.direction !== 0) {
-    ctx.fillStyle = COLORS.accent;
-    ctx.font = "20px monospace";
-    ctx.textAlign = "right";
-    const arrow = aiInfo.direction > 0 ? "↓" : "↑";
-    ctx.fillText(arrow, w - 40, s.paddles[1] * h);
-  }
 
   // flash
   if (flash > 0) {
