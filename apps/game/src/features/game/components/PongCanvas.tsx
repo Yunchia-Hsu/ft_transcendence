@@ -10,7 +10,6 @@ import { useAuthStore } from "@/features/auth/store/auth.store";
 const BASE_W = 960;
 const BASE_H = 640;
 const WIN_SCORE = 11;
-const MAIN_MENU_PATH = "/game"; // change if your main menu route differs
 
 const COLORS = {
   bg1: "#B380A2",
@@ -79,8 +78,11 @@ export default function PongCanvas() {
   const userId = useAuthStore((s) => s.userId);
   const navigate = useNavigate();
   const location = useLocation();
-  const isTournamentFlow =
-    new URLSearchParams(location.search).get("f") === "tournaments";
+
+  const query = new URLSearchParams(location.search);
+  const isTournamentFlow = query.get("f") === "tournaments";
+  const mainMenuPath = isTournamentFlow ? "/tournaments" : "/game";
+  const oppNickFromQS = query.get("oppNick") || null;
 
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const view = useRef<ViewParams>({
@@ -519,7 +521,19 @@ export default function PongCanvas() {
   const primaryDisabled = completing;
   const strategyColors = getStrategyColors(aiStrategy);
 
-  const goToMenu = () => navigate(MAIN_MENU_PATH);
+  // Derive the label to show for opponent in pre-game card
+  const opponentLabel =
+    gameMode === "ai"
+      ? oppNickFromQS || opponentId || "bot"
+      : isTournamentFlow && oppNickFromQS
+        ? oppNickFromQS
+        : opponentId && opponentId !== userId
+          ? opponentId
+          : "You";
+
+  const goToMenu = useCallback(() => {
+    navigate(mainMenuPath);
+  }, [navigate, mainMenuPath]);
 
   return (
     <div
@@ -826,18 +840,13 @@ export default function PongCanvas() {
                           </b>
                         </div>
                         <div>
-                          Opponent: <b>{opponentId ?? "bot"}</b>
+                          Opponent: <b>{opponentLabel}</b>
                         </div>
                       </div>
                     </>
                   ) : (
                     <div style={{ fontSize: 14, color: "#222" }}>
-                      Opponent:{" "}
-                      <b>
-                        {opponentId && opponentId !== userId
-                          ? opponentId
-                          : "You"}
-                      </b>
+                      Opponent: <b>{opponentLabel}</b>
                     </div>
                   )}
                 </div>

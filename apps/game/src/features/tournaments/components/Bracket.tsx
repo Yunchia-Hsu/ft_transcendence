@@ -105,7 +105,23 @@ function MatchCard({
 
   // Only allow opening the game if it exists AND there is no winner yet
   const canOpenGame = !!m.gameId && !winner;
-  const gameHref = canOpenGame ? `/game/${m.gameId}?f=tournaments` : null;
+
+  // Opponent nickname relative to current user (used by the game screen)
+  const opponentNickname =
+    currentUserId === p1Id
+      ? m.p2.nickname || ""
+      : currentUserId === p2Id
+        ? m.p1.nickname || ""
+        : "";
+
+  // Build game href with tournament flow + optional oppNick
+  const gameHref = canOpenGame
+    ? `/game/${m.gameId}?f=tournaments${
+        opponentNickname
+          ? `&oppNick=${encodeURIComponent(opponentNickname)}`
+          : ""
+      }`
+    : null;
 
   return (
     <div className="border rounded-lg p-3 bg-white">
