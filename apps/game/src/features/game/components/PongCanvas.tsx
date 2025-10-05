@@ -1,6 +1,3 @@
-
-
-
 import { PongAI } from "./AIOpponent.js";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -21,7 +18,7 @@ const COLORS = {
   accent2: "#E4EFC7",
   text: "#E4EFC7",
 } as const;
- 
+
 type Direction = -1 | 0 | 1;
 type InputTuple = [Direction, Direction];
 
@@ -43,23 +40,23 @@ interface AIDecision {
   usePowerUp: boolean;
   confidence: number;
 }
-  //test AI
-  function simpleAI(s: State): -1 | 0 | 1 {
-    const ballY = s.ball.y;
-    const paddleY = s.paddles[1];
-    const DEAD = 0.02; // deadzone to prevent shaking
-  
-    if (paddleY < ballY - DEAD) return +1; 
-    if (paddleY > ballY + DEAD) return -1; 
-    return 0;                               
-  }
+//test AI
+function simpleAI(s: State): -1 | 0 | 1 {
+  const ballY = s.ball.y;
+  const paddleY = s.paddles[1];
+  const DEAD = 0.02; // deadzone to prevent shaking
+
+  if (paddleY < ballY - DEAD) return +1;
+  if (paddleY > ballY + DEAD) return -1;
+  return 0;
+}
 
 class SimplePongAI {
   private lastUpdateTime: number = 0;
   private updateInterval: number = 1000;
   private targetY: number = 0.5;
   private difficulty: number = 0.8;
-  private strategyMode: string = 'adaptive';
+  private strategyMode: string = "adaptive";
 
   constructor(difficulty: number = 0.8) {
     this.difficulty = difficulty;
@@ -84,18 +81,19 @@ class SimplePongAI {
     return {
       direction,
       usePowerUp: Math.random() < 0.05, // 5% 機率使用 power-up
-      confidence: this.difficulty * (1 - Math.abs(diff))
+      confidence: this.difficulty * (1 - Math.abs(diff)),
     };
   }
 
-  private calculateTarget(gameState: State): void { //預測球到達 AI 區域的 y 座標，並考慮邊界反彈。
+  private calculateTarget(gameState: State): void {
+    //預測球到達 AI 區域的 y 座標，並考慮邊界反彈。
     const ball = gameState.ball;
     const velocity = gameState.vel;
 
     // 預測球的位置
     if (velocity.x > 0) {
       const timeToReach = (0.95 - ball.x) / velocity.x;
-      let predictedY = ball.y + (velocity.y * timeToReach);
+      let predictedY = ball.y + velocity.y * timeToReach;
 
       // 處理邊界反彈
       if (predictedY < 0) predictedY = -predictedY;
@@ -113,14 +111,15 @@ class SimplePongAI {
 
   setDifficulty(difficulty: number): void {
     this.difficulty = difficulty;
-    this.updateInterval = 1000 + ((1 - difficulty) * 500);
+    this.updateInterval = 1000 + (1 - difficulty) * 500;
   }
 
-  getDebugInfo(): any {//回傳 AI 的內部狀態（策略、目標、難度）。
+  getDebugInfo(): any {
+    //回傳 AI 的內部狀態（策略、目標、難度）。
     return {
       strategyMode: this.strategyMode,
       targetY: this.targetY,
-      difficulty: this.difficulty
+      difficulty: this.difficulty,
     };
   }
 
@@ -146,12 +145,15 @@ export default function PongCanvas() {
 
   // const stateRef = useRef<State>(createState());
   // const input = useRef<InputTuple>([0, 0]);
-  
 
   const aiOpponent = useRef<PongAI>(new PongAI(0.8));
   const stateRef = useRef<State>(createState());
-  const aiDecision = useRef<AIDecision>({ direction: 0, usePowerUp: false, confidence: 0 });
-  
+  const aiDecision = useRef<AIDecision>({
+    direction: 0,
+    usePowerUp: false,
+    confidence: 0,
+  });
+
   const [opponentId, setOpponentId] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -164,8 +166,8 @@ export default function PongCanvas() {
 
   const [gameRunning, setGameRunning] = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState(0.8);
-  const [gameMode, setGameMode] = useState<'ai' | 'human'>('human'); // Default to human vs human
-  const [aiStrategy, setAiStrategy] = useState<string>('adaptive'); // Track AI strategy state
+  const [gameMode, setGameMode] = useState<"ai" | "human">("human"); // Default to human vs human
+  const [aiStrategy, setAiStrategy] = useState<string>("adaptive"); // Track AI strategy state
   const animationFrameId = useRef<number | null>(null);
   const didComplete = useRef(false);
 
@@ -175,12 +177,17 @@ export default function PongCanvas() {
     aiOpponent.current.setDifficulty(difficulty);
   };
 
-  // Set up AI strategy change callback
+  // Set up AI strategy change callback (only in AI mode)
   useEffect(() => {
+    if (gameMode !== "ai") {
+      // Optional: clear UI when not in AI mode
+      setAiStrategy("adaptive");
+      return;
+    }
     aiOpponent.current.setOnStrategyChange((strategy: string) => {
       setAiStrategy(strategy);
     });
-  }, []);
+  }, [gameMode]);
 
   // Detect game mode based on game data
   useEffect(() => {
@@ -189,14 +196,14 @@ export default function PongCanvas() {
     const fetchGameMode = async () => {
       try {
         const gameData = await GamesApi.get(gameId);
-        // If player2 is "bot", it's AI mode; otherwise human vs human
         const isAIGame = gameData.player2 === "bot";
-        setGameMode(isAIGame ? 'ai' : 'human');
-        console.log(`Game mode detected: ${isAIGame ? 'AI' : 'Human vs Human'}`);
+        setGameMode(isAIGame ? "ai" : "human");
+        console.log(
+          `Game mode detected: ${isAIGame ? "AI" : "Human vs Human"}`
+        );
       } catch (error) {
-        console.error('Failed to fetch game data:', error);
-        // Default to human mode if fetch fails
-        setGameMode('human');
+        console.error("Failed to fetch game data:", error);
+        setGameMode("human");
       }
     };
 
@@ -274,21 +281,21 @@ export default function PongCanvas() {
       ArrowUp: { idx: 1, dir: -1 },
       ArrowDown: { idx: 1, dir: +1 },
     };
-    
+
     const handle = (e: KeyboardEvent, pressed: boolean): void => {
       const m = keyMap[e.key];
       if (!m) return;
 
       //console.log(`Key ${e.key} ${pressed ? 'pressed' : 'released'}, setting input[${m.idx}] = ${pressed ? m.dir : 0}`);
 
-      if (e.key === 'Space' && pressed) {
+      if (e.key === "Space" && pressed) {
         console.log("Human player activates power-up");
         return;
       }
 
       input.current[m.idx] = pressed ? m.dir : 0;
     };
-    
+
     const down = (e: KeyboardEvent) => handle(e, true);
     const up = (e: KeyboardEvent) => handle(e, false);
     window.addEventListener("keydown", down);
@@ -301,12 +308,15 @@ export default function PongCanvas() {
 
   // 簡化的 AI 輸入處理
   const processAIInput = (currentTime: number): Direction => {
-    aiDecision.current = aiOpponent.current.update(stateRef.current, currentTime);
-    
+    aiDecision.current = aiOpponent.current.update(
+      stateRef.current,
+      currentTime
+    );
+
     if (aiDecision.current.usePowerUp) {
       console.log("AI activates power-up");
     }
-    
+
     return aiDecision.current.direction;
   };
 
@@ -354,23 +364,20 @@ export default function PongCanvas() {
       last = now;
 
       while (acc >= STEP) {
-        let leftInput = input.current[0];
-        let rightInput = simpleAI(stateRef.current);
-        // let rightInput: Direction;
-        
-        if (gameMode === 'ai') {
-          rightInput = processAIInput(now);
-        } else {
-          rightInput = input.current[1];
-        }
-        
+        const leftInput = input.current[0];
+        const rightInput: Direction =
+          gameMode === "ai"
+            ? processAIInput(now) // AI only when the game was started as AI
+            : input.current[1]; // Human controls on the right side
+
         const ev = update(stateRef.current, [leftInput, rightInput]);
 
-       
-        trail.current.push({ x: stateRef.current.ball.x, y: stateRef.current.ball.y });
+        trail.current.push({
+          x: stateRef.current.ball.x,
+          y: stateRef.current.ball.y,
+        });
         if (trail.current.length > 14) trail.current.shift();
 
-      
         if (ev.paddleHit !== null) {
           spawnHitParticles(
             particles.current,
@@ -384,14 +391,12 @@ export default function PongCanvas() {
         if (ev.goal !== null) {
           flash.current = 1;
 
-          if (gameMode === 'ai') {
+          if (gameMode === "ai") {
             // Force AI to immediately analyze strategy after goal
             console.log("Goal scored. AI analyzing strategy immediately...");
             aiOpponent.current.analyzeGameState(stateRef.current);
           }
         }
-       // if (ev.goal !== null) flash.current = 1;
-
         // win: exact target to avoid off-by-one UI vs server
         const [a, b] = state.score;
         if (!didComplete.current && (a === WIN_SCORE || b === WIN_SCORE)) {
@@ -448,30 +453,30 @@ export default function PongCanvas() {
         particles.current,
         flash.current,
         view.current.scale,
-        gameMode === 'ai' ? aiDecision.current : null
+        gameMode === "ai" ? aiDecision.current : null
       );
-      
+
       animationFrameId.current = requestAnimationFrame(loop);
     };
 
     animationFrameId.current = requestAnimationFrame(loop);
-    
+
     return () => {
       if (animationFrameId.current !== null) {
         cancelAnimationFrame(animationFrameId.current);
         animationFrameId.current = null;
       }
     };
-  // }, [gameRunning, gameMode]);
+    // }, [gameRunning, gameMode]);
 
-  // const handleButtonClick = () => {
-  //   if (gameRunning) {
-  //     stateRef.current = createState();
-  //     aiOpponent.current.reset();
-  //     trail.current = [];
-  //     particles.current = [];
-  //   }
-  //   setGameRunning((prev) => !prev);
+    // const handleButtonClick = () => {
+    //   if (gameRunning) {
+    //     stateRef.current = createState();
+    //     aiOpponent.current.reset();
+    //     trail.current = [];
+    //     particles.current = [];
+    //   }
+    //   setGameRunning((prev) => !prev);
     // NOTE: do not include `state` in deps; it’s mutated per tick.
   }, [gameRunning, gameId, userId, opponentId, gameMode]);
 
@@ -511,60 +516,87 @@ export default function PongCanvas() {
       }}
     >
       <canvas ref={canvas} />
-      
+
       {/* 遊戲控制面板 */}
-      <div style={{
-        position: "absolute",
-        top: "20px",
-        right: "20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "10px",
-        background: "rgba(0,0,0,0.7)",
-        padding: "15px",
-        borderRadius: "8px",
-        color: "white"
-      }}>
-        <div>
-          <label>Mode: </label>
-          <select 
-            value={gameMode} 
-            onChange={(e) => setGameMode(e.target.value as 'ai' | 'human')}
-            style={{ marginLeft: "5px" }}
+      <div
+        style={{
+          position: "absolute",
+          top: "20px",
+          right: "20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          background: "rgba(0,0,0,0.7)",
+          padding: "15px",
+          borderRadius: "8px",
+          color: "white",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span>Mode:</span>
+          <span
+            style={{
+              marginLeft: 6,
+              padding: "2px 8px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+              background:
+                gameMode === "ai"
+                  ? "rgba(16,185,129,0.2)"
+                  : "rgba(99,102,241,0.2)",
+              color: gameMode === "ai" ? "#10B981" : "#6366F1",
+              border: `1px solid ${gameMode === "ai" ? "#10B981" : "#6366F1"}`,
+            }}
+            title="Game mode is set by how you started the match"
           >
-            <option value="ai">vs AI</option>
-            <option value="human">vs Human</option>
-          </select>
+            {gameMode === "ai" ? "vs AI" : "vs Human"}
+          </span>
         </div>
-        
-        {gameMode === 'ai' && (
+
+        {gameMode === "ai" && (
           <div>
             <label>AI Difficulty: </label>
-            <input 
-              type="range" 
-              min="0.1" 
-              max="1" 
-              step="0.1" 
+            <input
+              type="range"
+              min="0.1"
+              max="1"
+              step="0.1"
               value={aiDifficulty}
-              onChange={(e) => handleDifficultyChange(parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleDifficultyChange(parseFloat(e.target.value))
+              }
               style={{ marginLeft: "5px" }}
             />
             <span style={{ marginLeft: "5px" }}>{aiDifficulty.toFixed(1)}</span>
           </div>
         )}
-        
-        {gameMode === 'ai' && (
+
+        {gameMode === "ai" && (
           <div style={{ fontSize: "12px" }}>
-            <div>AI Confidence: {(aiDecision.current.confidence * 100).toFixed(0)}%</div>
-            <div>AI Strategy: <span style={{
-              color: aiStrategy === 'aggressive' ? '#ff6b6b' :
-                    aiStrategy === 'defensive' ? '#51cf66' : '#74c0fc',
-              fontWeight: 'bold'
-            }}>{aiStrategy}</span></div>
+            <div>
+              AI Confidence: {(aiDecision.current.confidence * 100).toFixed(0)}%
+            </div>
+            <div>
+              AI Strategy:{" "}
+              <span
+                style={{
+                  color:
+                    aiStrategy === "aggressive"
+                      ? "#ff6b6b"
+                      : aiStrategy === "defensive"
+                        ? "#51cf66"
+                        : "#74c0fc",
+                  fontWeight: "bold",
+                }}
+              >
+                {aiStrategy}
+              </span>
+            </div>
           </div>
         )}
       </div>
-      
+
       <button
         onClick={onPrimaryClick}
         disabled={primaryDisabled}
@@ -584,18 +616,20 @@ export default function PongCanvas() {
       >
         {primaryLabel}
       </button>
-      
+
       {/* 控制說明 */}
-      <div style={{
-        position: "absolute",
-        bottom: "20px",
-        left: "20px",
-        background: "rgba(0,0,0,0.7)",
-        padding: "10px",
-        borderRadius: "5px",
-        color: "white",
-        fontSize: "12px"
-      }}>
+      <div
+        style={{
+          position: "absolute",
+          bottom: "20px",
+          left: "20px",
+          background: "rgba(0,0,0,0.7)",
+          padding: "10px",
+          borderRadius: "5px",
+          color: "white",
+          fontSize: "12px",
+        }}
+      >
         <div>Player 1: W/S keys</div>
         <div>Player 2: Arrow keys (if vs Human)</div>
         <div>Space: Activate Power-up</div>
@@ -695,7 +729,7 @@ function render(
   ctx.fillStyle = COLORS.text;
   roundRect(ctx, 18, s.paddles[0] * h - h * 0.1, 12, h * 0.2, 6);
   ctx.fill();
-  
+
   // AI paddle with confidence indicator
   if (aiInfo) {
     const confidenceColor = `rgba(255, ${Math.floor(255 * aiInfo.confidence)}, 0, 0.5)`;
@@ -703,7 +737,7 @@ function render(
     roundRect(ctx, w - 35, s.paddles[1] * h - h * 0.1, 17, h * 0.2, 6);
     ctx.fill();
   }
-  
+
   ctx.fillStyle = COLORS.text;
   roundRect(ctx, w - 30, s.paddles[1] * h - h * 0.1, 12, h * 0.2, 6);
   ctx.fill();
