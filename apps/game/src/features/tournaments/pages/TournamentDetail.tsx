@@ -1,3 +1,4 @@
+// apps/game/src/features/tournaments/pages/TournamentDetail.tsx
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { TournamentsApi } from "@/shared/api/tournaments";
@@ -7,6 +8,7 @@ import type {
 } from "@/shared/api/types";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { Bracket } from "../components/Bracket";
+import { TournamentDashboard } from "./TournamentDashboard";
 import { useLang } from "@/localization";
 
 export function TournamentDetail() {
@@ -37,6 +39,7 @@ export function TournamentDetail() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [nick, setNick] = useState("");
+
   const needsUsername = useMemo(() => !userProfile?.username, [userProfile]);
   const hasDisplayName = useMemo(
     () =>
@@ -65,7 +68,12 @@ export function TournamentDetail() {
       const d = (await TournamentsApi.get(id)) as TDetail;
       setDetail(d);
       const b = await TournamentsApi.bracket(id);
-      if (b.ok) setBracket(b);
+      // If your API returns { ok, ... }, keep this guard; otherwise assign directly.
+      if ((b as any)?.ok) {
+        setBracket(b as BracketResponse);
+      } else {
+        setBracket(b as BracketResponse);
+      }
     } finally {
       setLoading(false);
     }
@@ -133,8 +141,9 @@ export function TournamentDetail() {
     }
   };
 
-  if (loading || !detail)
+  if (loading || !detail) {
     return <div className="p-6">{t.game.tournaments.loading}</div>;
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -231,10 +240,20 @@ export function TournamentDetail() {
             onReport={report}
             currentUserId={userId}
             disabled={busy || detail.status !== "ongoing"}
-            showRematch={false} // <-- hide any "Play again / Rematch" controls
+            showRematch={false} // hide any "Play again / Rematch" controls
           />
         )}
       </section>
+
+      {/* Dashboard only when bracket data is available */}
+      {bracket && (
+        <TournamentDashboard
+          detail={detail}
+          bracket={bracket}
+          currentUserId={userId}
+          userName={userProfile?.displayname || userProfile?.username || null}
+        />
+      )}
     </div>
   );
 }
