@@ -35,7 +35,7 @@ interface Particle {
 
 type ViewParams = { cssW: number; cssH: number; dpr: number; scale: number };
 
-interface AIDecision {
+interface AIDecisionUI {
   direction: Direction;
   usePowerUp: boolean;
   confidence: number;
@@ -57,7 +57,7 @@ export default function PongCanvas() {
 
   const aiOpponent = useRef<PongAI>(new PongAI(0.8));
   const stateRef = useRef<State>(createState());
-  const aiDecision = useRef<AIDecision>({
+  const aiDecision = useRef<AIDecisionUI>({
     direction: 0,
     usePowerUp: false,
     confidence: 0,
@@ -79,13 +79,18 @@ export default function PongCanvas() {
   const animationFrameId = useRef<number | null>(null);
   const didComplete = useRef(false);
 
+  // Overlay states
+  const [showPregame, setShowPregame] = useState(true);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownTimer = useRef<number | null>(null);
+
   // adjust AI difficulty
   const handleDifficultyChange = (difficulty: number) => {
     setAiDifficulty(difficulty);
     aiOpponent.current.setDifficulty(difficulty);
   };
 
-  // Set up AI strategy change callback (only in AI mode)
+  // AI strategy change callback (only in AI mode)
   useEffect(() => {
     if (gameMode !== "ai") {
       setAiStrategy("adaptive");
@@ -104,7 +109,6 @@ export default function PongCanvas() {
         const gameData = await GamesApi.get(gameId);
         const isAIGame = gameData.player2 === "bot";
         setGameMode(isAIGame ? "ai" : "human");
-        // console.log(`Game mode detected: ${isAIGame ? "AI" : "Human vs Human"}`);
       } catch {
         setGameMode("human");
       }
@@ -228,6 +232,8 @@ export default function PongCanvas() {
       didComplete.current = false;
       setCompleted(false);
       setGameRunning(false);
+      setShowPregame(true);
+      setCountdown(null);
       trail.current = [];
       particles.current = [];
       flash.current = 0;
@@ -294,20 +300,21 @@ export default function PongCanvas() {
         }
 
         // win: exact target to avoid off-by-one UI vs server
-        const [a, b] = stateRef.current.score; // ✅ read live state
+        const [a, b] = stateRef.current.score; // ✅ live state
         if (!didComplete.current && (a === WIN_SCORE || b === WIN_SCORE)) {
           didComplete.current = true;
           setGameRunning(false);
           setCompleted(true);
 
           const score = `${a}-${b}`;
+          // ✅ If right/player2 wins, use opponentId (may be "bot"). If left wins, use userId.
           const winnerId =
             a > b ? (userId ?? "player1") : (opponentId ?? "player2");
 
           // render final frame, then stop RAF immediately
           render(
             ctx,
-            stateRef.current, // ✅ final state
+            stateRef.current,
             trail.current,
             particles.current,
             flash.current,
@@ -361,31 +368,61 @@ export default function PongCanvas() {
     };
   }, [gameRunning, gameId, userId, opponentId, gameMode]);
 
-  /* ---------- Start/Stop (or New Game) button ---------- */
+  /* ---------- Start/Stop ---------- */
   const onPrimaryClick = () => {
-    if (!completed) {
-      if (gameRunning) {
-        // Reset the live sim when stopping mid-game
-        stateRef.current = createState();
-        didComplete.current = false;
-        aiOpponent.current.reset();
-        trail.current = [];
-        particles.current = [];
-        flash.current = 0;
-      }
-      setGameRunning((prev) => !prev);
-    } else {
+    // This button only appears in overlays now
+    if (completed) {
       void startNewGame();
+      return;
     }
+    // Start countdown → then start
+    if (countdownTimer.current) {
+      window.clearInterval(countdownTimer.current);
+      countdownTimer.current = null;
+    }
+    setCountdown(3);
+    setShowPregame(false);
+
+    const id = window.setInterval(() => {
+      setCountdown((prev) => {
+        if (!prev || prev <= 1) {
+          window.clearInterval(id);
+          countdownTimer.current = null;
+          // reset sim at the moment match begins
+          stateRef.current = createState();
+          didComplete.current = false;
+          particles.current = [];
+          trail.current = [];
+          flash.current = 0;
+          setCompleted(false);
+          setGameRunning(true);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 800);
+    countdownTimer.current = id;
   };
 
-  const primaryLabel = !completed
-    ? gameRunning
-      ? t.game.buttons.stop
-      : t.game.buttons.start
-    : completing
+  // Escape key to reopen pregame overlay if not running and not completed
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !gameRunning && !completed) {
+        setShowPregame(true);
+        setCountdown(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [gameRunning, completed]);
+
+  const primaryLabel = completed
+    ? completing
       ? t.game.mainMenu.savingResult
-      : t.game.mainMenu.startNewGame;
+      : t.game.mainMenu.startNewGame
+    : countdown !== null
+      ? String(countdown)
+      : t.game.buttons.start;
 
   const primaryDisabled = completing;
 
@@ -397,127 +434,274 @@ export default function PongCanvas() {
         display: "grid",
         placeItems: "center",
         background: "#101418",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
       <canvas ref={canvas} />
 
-      {/* 控制面板 */}
-      <div
-        style={{
-          position: "absolute",
-          top: "20px",
-          right: "20px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-          background: "rgba(0,0,0,0.7)",
-          padding: "15px",
-          borderRadius: "8px",
-          color: "white",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span>Mode:</span>
-          <span
-            style={{
-              marginLeft: 6,
-              padding: "2px 8px",
-              borderRadius: 999,
-              fontSize: 12,
-              fontWeight: 700,
-              background:
-                gameMode === "ai"
-                  ? "rgba(16,185,129,0.2)"
-                  : "rgba(99,102,241,0.2)",
-              color: gameMode === "ai" ? "#10B981" : "#6366F1",
-              border: `1px solid ${gameMode === "ai" ? "#10B981" : "#6366F1"}`,
-            }}
-            title="Game mode is set by how you started the match"
-          >
-            {gameMode === "ai" ? "vs AI" : "vs Human"}
-          </span>
-        </div>
-
-        {gameMode === "ai" && (
-          <div>
-            <label>AI Difficulty: </label>
-            <input
-              type="range"
-              min="0.1"
-              max="1"
-              step="0.1"
-              value={aiDifficulty}
-              onChange={(e) =>
-                handleDifficultyChange(parseFloat(e.target.value))
-              }
-              style={{ marginLeft: "5px" }}
-            />
-            <span style={{ marginLeft: "5px" }}>{aiDifficulty.toFixed(1)}</span>
-          </div>
-        )}
-
-        {gameMode === "ai" && (
-          <div style={{ fontSize: "12px" }}>
-            <div>
-              AI Confidence: {(aiDecision.current.confidence * 100).toFixed(0)}%
+      {/* --- PRE-GAME OVERLAY (black screen with info) --- */}
+      {(showPregame || countdown !== null) && !completed && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "#000",
+            color: "#fff",
+            display: "grid",
+            placeItems: "center",
+            transition: "opacity 200ms ease",
+            opacity: 1,
+            zIndex: 10,
+          }}
+        >
+          {countdown !== null ? (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 84, fontWeight: 800, letterSpacing: 2 }}>
+                {countdown}
+              </div>
+              <div style={{ opacity: 0.8, marginTop: 12, fontSize: 18 }}>
+                Get ready…
+              </div>
             </div>
-            <div>
-              AI Strategy:{" "}
-              <span
+          ) : (
+            <div
+              style={{
+                width: "min(92vw, 720px)",
+                borderRadius: 16,
+                background: "rgba(16,16,16,0.7)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                padding: 24,
+                backdropFilter: "blur(6px)",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+              }}
+            >
+              <div
                 style={{
-                  color:
-                    aiStrategy === "aggressive"
-                      ? "#ff6b6b"
-                      : aiStrategy === "defensive"
-                        ? "#51cf66"
-                        : "#74c0fc",
-                  fontWeight: "bold",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 14,
                 }}
               >
-                {aiStrategy}
-              </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 28, fontWeight: 800 }}>Pong</span>
+                  <span
+                    style={{
+                      padding: "2px 10px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background:
+                        gameMode === "ai"
+                          ? "rgba(16,185,129,0.2)"
+                          : "rgba(99,102,241,0.2)",
+                      color: gameMode === "ai" ? "#10B981" : "#6366F1",
+                      border: `1px solid ${gameMode === "ai" ? "#10B981" : "#6366F1"}`,
+                    }}
+                    title="Mode is based on how you started the match"
+                  >
+                    {gameMode === "ai" ? "vs AI" : "vs Human"}
+                  </span>
+                </div>
+
+                <button
+                  onClick={onPrimaryClick}
+                  disabled={primaryDisabled}
+                  style={{
+                    background: "#FF8C00",
+                    border: "none",
+                    padding: "10px 20px",
+                    color: "white",
+                    fontSize: 16,
+                    cursor: primaryDisabled ? "not-allowed" : "pointer",
+                    borderRadius: 10,
+                    fontWeight: 800,
+                    opacity: primaryDisabled ? 0.6 : 1,
+                  }}
+                >
+                  {primaryLabel}
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                }}
+              >
+                {/* Left: Controls */}
+                <div
+                  style={{
+                    borderRadius: 12,
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    padding: 16,
+                  }}
+                >
+                  <div
+                    style={{ fontWeight: 700, marginBottom: 8, opacity: 0.9 }}
+                  >
+                    Controls
+                  </div>
+                  <div style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.9 }}>
+                    <div>
+                      Player 1: <b>W / S</b>
+                    </div>
+                    {gameMode === "human" ? (
+                      <div>
+                        Player 2: <b>Arrow ↑ / ↓</b>
+                      </div>
+                    ) : (
+                      <div>
+                        Player 2: <b>AI controlled</b>
+                      </div>
+                    )}
+                    <div>
+                      Power-up: <b>Space</b>
+                    </div>
+                    <div>
+                      Target score: <b>{WIN_SCORE}</b>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: AI settings / info */}
+                <div
+                  style={{
+                    borderRadius: 12,
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    padding: 16,
+                  }}
+                >
+                  <div
+                    style={{ fontWeight: 700, marginBottom: 8, opacity: 0.9 }}
+                  >
+                    {gameMode === "ai" ? "AI Settings" : "Match Info"}
+                  </div>
+
+                  {gameMode === "ai" ? (
+                    <>
+                      <label style={{ fontSize: 13, opacity: 0.9 }}>
+                        Difficulty: <b>{aiDifficulty.toFixed(1)}</b>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="1"
+                        step="0.1"
+                        value={aiDifficulty}
+                        onChange={(e) =>
+                          handleDifficultyChange(parseFloat(e.target.value))
+                        }
+                        style={{ width: "100%", margin: "8px 0 12px" }}
+                      />
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 16,
+                          fontSize: 13,
+                          opacity: 0.9,
+                        }}
+                      >
+                        <div>
+                          Strategy:{" "}
+                          <b
+                            style={{
+                              color:
+                                aiStrategy === "aggressive"
+                                  ? "#ff6b6b"
+                                  : aiStrategy === "defensive"
+                                    ? "#51cf66"
+                                    : "#74c0fc",
+                            }}
+                          >
+                            {aiStrategy}
+                          </b>
+                        </div>
+                        <div>
+                          Confidence:{" "}
+                          <b>
+                            {Math.round(aiDecision.current.confidence * 100)}%
+                          </b>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 14, opacity: 0.9 }}>
+                      Opponent:{" "}
+                      <b>
+                        {opponentId && opponentId !== userId
+                          ? opponentId
+                          : "You"}
+                      </b>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* --- POST-GAME OVERLAY --- */}
+      {completed && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(0,0,0,0.9)",
+            color: "#fff",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 10,
+          }}
+        >
+          <div
+            style={{
+              width: "min(92vw, 640px)",
+              borderRadius: 16,
+              background: "rgba(16,16,16,0.7)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              padding: 24,
+              backdropFilter: "blur(6px)",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>
+              Match Over
+            </div>
+            <div style={{ opacity: 0.9, marginBottom: 14 }}>
+              Final Score:{" "}
+              <b>
+                {stateRef.current.score[0]} - {stateRef.current.score[1]}
+              </b>
+            </div>
+            <button
+              onClick={onPrimaryClick}
+              disabled={primaryDisabled}
+              style={{
+                background: "#10B981",
+                border: "none",
+                padding: "10px 20px",
+                color: "white",
+                fontSize: 16,
+                cursor: primaryDisabled ? "not-allowed" : "pointer",
+                borderRadius: 10,
+                fontWeight: 800,
+                opacity: primaryDisabled ? 0.6 : 1,
+              }}
+            >
+              {completing
+                ? t.game.mainMenu.savingResult
+                : t.game.mainMenu.startNewGame}
+            </button>
           </div>
-        )}
-      </div>
-
-      <button
-        onClick={onPrimaryClick}
-        disabled={primaryDisabled}
-        style={{
-          position: "absolute",
-          bottom: "20px",
-          backgroundColor: completed ? "#10B981" : "#FF8C00",
-          border: "none",
-          padding: "10px 20px",
-          color: "white",
-          fontSize: "18px",
-          cursor: primaryDisabled ? "not-allowed" : "pointer",
-          borderRadius: "5px",
-          fontWeight: "bold",
-          opacity: primaryDisabled ? 0.6 : 1,
-        }}
-      >
-        {primaryLabel}
-      </button>
-
-      {/* 控制說明 */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "20px",
-          left: "20px",
-          background: "rgba(0,0,0,0.7)",
-          padding: "10px",
-          borderRadius: "5px",
-          color: "white",
-          fontSize: "12px",
-        }}
-      >
-        <div>Player 1: W/S keys</div>
-        <div>Player 2: Arrow keys (if vs Human)</div>
-        <div>Space: Activate Power-up</div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -568,7 +752,7 @@ function render(
   particles: readonly Particle[],
   flash: number,
   scale: number,
-  aiInfo?: AIDecision | null
+  aiInfo?: AIDecisionUI | null
 ): void {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
@@ -581,6 +765,7 @@ function render(
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 
+  // center dashed divider
   ctx.save();
   ctx.fillStyle = COLORS.accent2;
   const segH = 16,
@@ -592,6 +777,7 @@ function render(
   }
   ctx.restore();
 
+  // ball trail
   for (let i = 0; i < trail.length; i += 1) {
     const t = i / trail.length;
     ctx.fillStyle = rgbaHex(COLORS.accent2, t * 0.6);
@@ -601,6 +787,7 @@ function render(
     ctx.fill();
   }
 
+  // particles
   for (const p of particles) {
     const col = p.light ? COLORS.accent : COLORS.accent2;
     ctx.fillStyle = rgbaHex(col, Math.max(0, Math.min(1, p.life)));
@@ -609,6 +796,7 @@ function render(
     ctx.fill();
   }
 
+  // paddles
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.35)";
   ctx.shadowBlur = 10;
@@ -616,7 +804,7 @@ function render(
   roundRect(ctx, 18, s.paddles[0] * h - h * 0.1, 12, h * 0.2, 6);
   ctx.fill();
 
-  // AI paddle with confidence indicator
+  // AI paddle with confidence indicator (in AI mode only)
   if (aiInfo) {
     const confidenceColor = `rgba(255, ${Math.floor(255 * aiInfo.confidence)}, 0, 0.5)`;
     ctx.fillStyle = confidenceColor;
@@ -629,6 +817,7 @@ function render(
   ctx.fill();
   ctx.restore();
 
+  // ball
   ctx.fillStyle = COLORS.accent;
   ctx.beginPath();
   ctx.arc(s.ball.x * w, s.ball.y * h, 7, 0, Math.PI * 2);
@@ -642,7 +831,7 @@ function render(
   ctx.fillText(String(s.score[0]), w / 2 - 80, 64);
   ctx.fillText(String(s.score[1]), w / 2 + 80, 64);
 
-  // AI movement indicator (for debugging)
+  // AI movement arrow (debug)
   if (aiInfo && aiInfo.direction !== 0) {
     ctx.fillStyle = COLORS.accent;
     ctx.font = "20px monospace";
@@ -651,6 +840,7 @@ function render(
     ctx.fillText(arrow, w - 40, s.paddles[1] * h);
   }
 
+  // flash
   if (flash > 0) {
     ctx.fillStyle = rgbaHex(COLORS.accent, flash * 0.35);
     ctx.fillRect(0, 0, w, h);
