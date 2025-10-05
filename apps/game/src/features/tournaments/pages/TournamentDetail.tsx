@@ -11,6 +11,8 @@ import { Bracket } from "../components/Bracket";
 import { TournamentDashboard } from "./TournamentDashboard";
 import { useLang } from "@/localization";
 
+type Banner = { kind: "info" | "error" | "success"; text: string } | null;
+
 export function TournamentDetail() {
   const { t } = useLang();
   const { id } = useParams<{ id: string }>();
@@ -18,9 +20,9 @@ export function TournamentDetail() {
   const userId = useAuthStore((s) => s.userId);
   const userProfile = useAuthStore((s) => s.userProfile);
 
-  // Helper function to translate tournament status
+  // Helper: translate tournament status
   const getStatusTranslation = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch ((status || "").toLowerCase()) {
       case "pending":
         return t.tournamentsPage.status.pending;
       case "ongoing":
@@ -39,41 +41,51 @@ export function TournamentDetail() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [nick, setNick] = useState("");
+  const [banner, setBanner] = useState<Banner>(null);
 
+  // Derived
   const needsUsername = useMemo(() => !userProfile?.username, [userProfile]);
   const hasDisplayName = useMemo(
     () =>
       !!userProfile?.displayname && userProfile.displayname.trim().length > 0,
     [userProfile]
   );
+  const pending = detail?.status === "pending";
 
-  const canJoin = useMemo(
-    () => !!token && detail?.status === "pending",
-    [token, detail]
-  );
-  const canLeave = canJoin; // same condition (pending)
-  const canStart = useMemo(
-    () => !!token && detail?.status === "pending",
-    [token, detail]
-  );
-  const canReport = useMemo(
-    () => !!token && detail?.status === "ongoing",
-    [token, detail]
-  );
+  // Detect owner/creator from common field names
+  const isOwner = useMemo(() => {
+    if (!detail || !userId) return false;
+    const ownerId =
+      (detail as any).ownerId ??
+      (detail as any).createdBy ??
+      (detail as any).organizerId ??
+      (detail as any).creatorId ??
+      null;
+    return !!ownerId && ownerId === userId;
+  }, [detail, userId]);
+
+  // Is current user already a participant?
+  const isParticipant = useMemo(() => {
+    if (!detail || !userId) return false;
+    return detail.participants?.some((p: any) => p.userId === userId) ?? false;
+  }, [detail, userId]);
+
+  // Buttons left clickable so your custom messages appear on click
+  const canJoinVisible = !!token && pending;
+  const canLeaveVisible = !!token && pending;
+  const canStartVisible = !!token && pending;
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
+    setBanner(null);
     try {
       const d = (await TournamentsApi.get(id)) as TDetail;
       setDetail(d);
       const b = await TournamentsApi.bracket(id);
-      // If your API returns { ok, ... }, keep this guard; otherwise assign directly.
-      if ((b as any)?.ok) {
-        setBracket(b as BracketResponse);
-      } else {
-        setBracket(b as BracketResponse);
-      }
+      setBracket(
+        (b as any)?.ok ? (b as BracketResponse) : (b as BracketResponse)
+      );
     } finally {
       setLoading(false);
     }
@@ -83,40 +95,112 @@ export function TournamentDetail() {
     void load();
   }, [load]);
 
+  const show = (kind: Banner["kind"], text: string) =>
+    setBanner({ kind, text });
+
   const join = async () => {
-    if (!id || !token || !canJoin) return;
-    if (needsUsername && !nick.trim()) {
-      // Username required before joining; prompt via required input
+    if (!id || !token || !canJoinVisible) return;
+
+    // Already joined
+    if (isParticipant) {
+      show("info", "You can’t join twice.");
       return;
     }
+
+    // Username required before joining (client-side guard)
+    if (needsUsername) {
+      show(
+        "error",
+        "You need to set a username in your profile before joining."
+      );
+      return;
+    }
+
     setBusy(true);
+    setBanner(null);
     try {
       const nicknameToSend =
         nick.trim() || (hasDisplayName ? userProfile!.displayname!.trim() : "");
       await TournamentsApi.join(id, token, nicknameToSend || undefined);
+      show("success", "Joined the tournament.");
       await load();
+    } catch (e: any) {
+      // Server validation mapping
+      if (e?.status === 400) {
+        show("error", "Please enter a nickname to join.");
+      } else if (e?.status === 409) {
+        // Could be "already joined" or other prereq
+        if (needsUsername) {
+          show(
+            "error",
+            "You need to set a username in your profile before joining."
+          );
+        } else {
+          show("info", "You can’t join twice.");
+        }
+      } else {
+        show("error", e?.message || "Failed to join.");
+      }
     } finally {
       setBusy(false);
     }
   };
 
   const leave = async () => {
-    if (!id || !token || !canLeave) return;
+    if (!id || !token || !canLeaveVisible) return;
+
+    // NEW: creators can't leave their own tournament
+    if (isOwner) {
+      show("info", "You created this tournament — you can’t leave.");
+      return;
+    }
+
+    // Not a participant
+    if (!isParticipant) {
+      show("info", "You haven’t joined — you can’t leave.");
+      return;
+    }
+
     setBusy(true);
+    setBanner(null);
     try {
       await TournamentsApi.leave(id, token);
+      show("success", "Left the tournament.");
       await load();
+    } catch (e: any) {
+      if (e?.status === 409) {
+        // e.g., bracket locked or additional server rules
+        show(
+          "error",
+          isOwner
+            ? "Creators can’t leave their own tournament."
+            : "You can’t leave right now."
+        );
+      } else {
+        show("error", e?.message || "Failed to leave.");
+      }
     } finally {
       setBusy(false);
     }
   };
 
   const start = async () => {
-    if (!id || !token || !canStart) return;
+    if (!id || !token || !canStartVisible) return;
+
+    // Not an owner
+    if (!isOwner) {
+      show("info", "Only the tournament creator can start.");
+      return;
+    }
+
     setBusy(true);
+    setBanner(null);
     try {
       await TournamentsApi.start(id, token);
+      show("success", "Tournament started.");
       await load();
+    } catch (e: any) {
+      show("error", e?.message || "Failed to start.");
     } finally {
       setBusy(false);
     }
@@ -127,8 +211,9 @@ export function TournamentDetail() {
     matchIndex: number,
     winnerUserId: string
   ) => {
-    if (!id || !token || !canReport) return;
+    if (!id || !token || detail?.status !== "ongoing") return;
     setBusy(true);
+    setBanner(null);
     try {
       await TournamentsApi.recordResult(id, token, {
         round,
@@ -136,6 +221,8 @@ export function TournamentDetail() {
         winnerUserId,
       });
       await load();
+    } catch (e: any) {
+      show("error", e?.message || "Failed to report result.");
     } finally {
       setBusy(false);
     }
@@ -144,6 +231,22 @@ export function TournamentDetail() {
   if (loading || !detail) {
     return <div className="p-6">{t.game.tournaments.loading}</div>;
   }
+
+  const BannerEl = banner && (
+    <div
+      className={[
+        "mt-3 rounded px-3 py-2 text-sm",
+        banner.kind === "error"
+          ? "bg-red-100 text-red-800"
+          : banner.kind === "success"
+            ? "bg-green-100 text-green-800"
+            : "bg-amber-100 text-amber-800",
+      ].join(" ")}
+      role={banner.kind === "error" ? "alert" : "status"}
+    >
+      {banner.text}
+    </div>
+  );
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -156,48 +259,96 @@ export function TournamentDetail() {
             {t.game.tournaments.size}: {detail.size} •{" "}
             {t.game.tournaments.rounds} {detail.rounds}
           </div>
+          {BannerEl}
+          {detail.status === "pending" && !isOwner && (
+            <div className="mt-2 text-xs text-gray-600">
+              Only the tournament creator can start.
+            </div>
+          )}
+          {detail.status === "pending" && needsUsername && (
+            <div className="mt-1 text-xs text-gray-600">
+              You need a username before joining.
+            </div>
+          )}
+          {detail.status === "pending" && isOwner && (
+            <div className="mt-1 text-xs text-gray-600">
+              Creators can’t leave their own tournament.
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => void load()}
             className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
           >
             {t.game.tournaments.refresh}
           </button>
+
           {detail.status === "pending" ? (
             <>
-              {(needsUsername || !hasDisplayName) && (
-                <input
-                  className="border px-3 py-1 rounded"
-                  value={nick}
-                  onChange={(e) => setNick(e.target.value)}
-                  placeholder={
-                    needsUsername
-                      ? t.profile.labels.username
-                      : t.game.tournaments.nicknameOptional
-                  }
-                  required={needsUsername}
-                />
-              )}
+              {/* Optional nickname field (backend may still require username separately) */}
+              <input
+                className="border px-3 py-1 rounded"
+                value={nick}
+                onChange={(e) => setNick(e.target.value)}
+                placeholder={
+                  needsUsername
+                    ? t.profile.labels.username
+                    : t.game.tournaments.nicknameOptional
+                }
+              />
+
+              {/* Join: enabled so your custom messages appear on click */}
               <button
-                disabled={!canJoin || busy}
                 onClick={join}
-                className="px-3 py-1 bg-emerald-600 text-white rounded disabled:opacity-60"
+                disabled={busy || !token}
+                className={[
+                  "px-3 py-1 rounded text-white disabled:opacity-60",
+                  "bg-emerald-600",
+                  isParticipant ? "opacity-90" : "",
+                ].join(" ")}
+                title={
+                  isParticipant
+                    ? "You’re already a participant"
+                    : needsUsername
+                      ? "Set a username before joining"
+                      : ""
+                }
               >
                 {t.game.tournaments.join}
               </button>
+
+              {/* Leave: enabled so your custom messages appear on click */}
               <button
-                disabled={!canLeave || busy}
                 onClick={leave}
-                className="px-3 py-1 bg-yellow-500 text-white rounded disabled:opacity-60"
+                disabled={busy || !token}
+                className={[
+                  "px-3 py-1 rounded text-white disabled:opacity-60",
+                  "bg-yellow-500",
+                  !isParticipant || isOwner ? "opacity-90" : "",
+                ].join(" ")}
+                title={
+                  isOwner
+                    ? "Creators can’t leave their own tournament"
+                    : !isParticipant
+                      ? "You haven’t joined — you can’t leave"
+                      : ""
+                }
               >
                 {t.game.tournaments.leave}
               </button>
+
+              {/* Start: enabled so your custom message appears on click */}
               <button
-                disabled={!canStart || busy}
                 onClick={start}
-                className="px-3 py-1 bg-indigo-600 text-white rounded disabled:opacity-60"
-                title="Owner can start; server enforces permission"
+                disabled={busy || !token}
+                className={[
+                  "px-3 py-1 rounded text-white disabled:opacity-60",
+                  "bg-indigo-600",
+                  !isOwner ? "opacity-90" : "",
+                ].join(" ")}
+                title={!isOwner ? "Only the tournament creator can start" : ""}
               >
                 {t.game.tournaments.start}
               </button>
