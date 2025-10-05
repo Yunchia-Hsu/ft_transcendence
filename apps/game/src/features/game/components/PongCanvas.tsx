@@ -1,3 +1,4 @@
+// apps/game/src/features/pong/PongCanvas.tsx
 import { PongAI } from "./AIOpponent.js";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
@@ -41,6 +42,29 @@ type AIDecision = {
   confidence: number;
 };
 
+// ---- Ball customisation types & helpers ----
+type BallSkin =
+  | { kind: "classic"; color: string; outline: boolean }
+  | { kind: "neon"; color: string }
+  | { kind: "emoji"; char: string; scale: number }
+  | { kind: "soccer" }
+  | { kind: "basketball" };
+
+function loadBallSkin(): BallSkin {
+  try {
+    const raw = localStorage.getItem("pong.ballSkin");
+    if (!raw) throw new Error("no skin");
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.kind) throw new Error("bad");
+    return parsed as BallSkin;
+  } catch {
+    return { kind: "classic", color: "#EADCB3", outline: false };
+  }
+}
+function saveBallSkin(skin: BallSkin) {
+  localStorage.setItem("pong.ballSkin", JSON.stringify(skin));
+}
+
 function getStrategyColors(mode: string) {
   if (mode === "aggressive") {
     return {
@@ -83,6 +107,9 @@ export default function PongCanvas() {
   const isTournamentFlow = query.get("f") === "tournaments";
   const mainMenuPath = isTournamentFlow ? "/tournaments" : "/game";
   const oppNickFromQS = query.get("oppNick") || null;
+  const p1NickFromQS = query.get("p1Nick") || null;
+  const p2NickFromQS = query.get("p2Nick") || null;
+  const [opponentNick, setOpponentNick] = useState<string | null>(null);
 
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const view = useRef<ViewParams>({
@@ -117,6 +144,12 @@ export default function PongCanvas() {
   const animationFrameId = useRef<number | null>(null);
   const didComplete = useRef(false);
 
+  // Ball skin (persisted)
+  const [ballSkin, setBallSkin] = useState<BallSkin>(() => loadBallSkin());
+  useEffect(() => {
+    saveBallSkin(ballSkin);
+  }, [ballSkin]);
+
   // overlays
   const [showPregame, setShowPregame] = useState(true);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -127,7 +160,7 @@ export default function PongCanvas() {
 
   // CONFIRM TERMINATE
   const [showConfirmTerminate, setShowConfirmTerminate] = useState(false);
-  const [pausedForConfirm, setPausedForConfirm] = useState(false); // ← NEW
+  const [pausedForConfirm, setPausedForConfirm] = useState(false);
 
   const handleDifficultyChange = (difficulty: number) => {
     setAiDifficulty(difficulty);
@@ -183,6 +216,40 @@ export default function PongCanvas() {
   }, [gameId, userId]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // If bracket already gave us the direct opponent nick, just use it.
+      if (oppNickFromQS) {
+        if (!cancelled) setOpponentNick(oppNickFromQS);
+        return;
+      }
+
+      // Otherwise try to resolve via game meta + p1Nick/p2Nick fallbacks
+      try {
+        if (!gameId) return;
+        const g = await GamesApi.get(gameId);
+        // If we know which side we are, choose the *other* side's nick
+        if (g.player1 === userId) {
+          if (!cancelled) setOpponentNick(p2NickFromQS || null);
+          return;
+        }
+        if (g.player2 === userId) {
+          if (!cancelled) setOpponentNick(p1NickFromQS || null);
+          return;
+        }
+        // Unknown side: prefer any nick we have; otherwise leave null
+        if (!cancelled) setOpponentNick(p1NickFromQS || p2NickFromQS || null);
+      } catch {
+        // ✅ Fix typo here
+        setOpponentNick(p1NickFromQS || p2NickFromQS || null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId, userId, oppNickFromQS, p1NickFromQS, p2NickFromQS, opponentId]);
+
+  useEffect(() => {
     const onResize = (): void => {
       if (!canvas.current) return;
       const vw = window.innerWidth;
@@ -226,7 +293,7 @@ export default function PongCanvas() {
     const handle = (e: KeyboardEvent, pressed: boolean): void => {
       const m = keyMap[e.key];
       if (!m) return;
-      if (e.key === "Space" && pressed) return; // power-up (reserved)
+      if (e.key === "Space" && pressed) return;
       input.current[m.idx] = pressed ? m.dir : 0;
     };
 
@@ -280,11 +347,11 @@ export default function PongCanvas() {
     if (showConfirmTerminate) {
       if (gameRunning) {
         setPausedForConfirm(true);
-        setGameRunning(false); // pauses RAF; stateRef preserved
+        setGameRunning(false);
       }
     } else {
       if (pausedForConfirm && !terminated && !completed) {
-        setGameRunning(true); // resume from exact frame
+        setGameRunning(true);
       }
       setPausedForConfirm(false);
     }
@@ -296,10 +363,10 @@ export default function PongCanvas() {
     if (!showConfirmTerminate) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setShowConfirmTerminate(false); // will resume via effect
+        setShowConfirmTerminate(false);
       }
       if (e.key === "Enter") {
-        setPausedForConfirm(false); // prevent resume-on-close
+        setPausedForConfirm(false);
         setShowConfirmTerminate(false);
         void onTerminateClick();
       }
@@ -310,7 +377,6 @@ export default function PongCanvas() {
 
   const onTerminateClick = async () => {
     if (!gameId) return;
-    // hard stop
     if (animationFrameId.current !== null) {
       cancelAnimationFrame(animationFrameId.current);
       animationFrameId.current = null;
@@ -410,7 +476,8 @@ export default function PongCanvas() {
             particles.current,
             flash.current,
             view.current.scale,
-            gameMode === "ai"
+            gameMode === "ai",
+            ballSkin
           );
           if (animationFrameId.current !== null) {
             cancelAnimationFrame(animationFrameId.current);
@@ -442,7 +509,8 @@ export default function PongCanvas() {
         particles.current,
         flash.current,
         view.current.scale,
-        gameMode === "ai"
+        gameMode === "ai",
+        ballSkin
       );
 
       animationFrameId.current = requestAnimationFrame(loop);
@@ -456,20 +524,15 @@ export default function PongCanvas() {
         animationFrameId.current = null;
       }
     };
-  }, [gameRunning, gameId, userId, opponentId, gameMode]);
+  }, [gameRunning, gameId, userId, opponentId, gameMode, ballSkin]);
 
   const onPrimaryClick = () => {
-    // If match already finished:
     if (completed || terminated) {
-      // In tournaments flow, NEVER open a new game.
-      if (isTournamentFlow) return;
-
-      // Outside tournaments, allow opening a fresh game (original behavior).
+      if (isTournamentFlow) return; // do not open new games from tournament flow
       void startNewGame();
       return;
     }
 
-    // Normal "Start" flow / countdown
     if (countdownTimer.current) {
       window.clearInterval(countdownTimer.current);
       countdownTimer.current = null;
@@ -521,14 +584,14 @@ export default function PongCanvas() {
   const primaryDisabled = completing;
   const strategyColors = getStrategyColors(aiStrategy);
 
-  // Derive the label to show for opponent in pre-game card
+  // Opponent label (use nickname if passed from tournaments / resolved)
   const opponentLabel =
     gameMode === "ai"
-      ? oppNickFromQS || opponentId || "bot"
-      : isTournamentFlow && oppNickFromQS
-        ? oppNickFromQS
-        : opponentId && opponentId !== userId
-          ? opponentId
+      ? oppNickFromQS || opponentNick || "bot"
+      : isTournamentFlow && (oppNickFromQS || opponentNick)
+        ? (oppNickFromQS || opponentNick)!
+        : opponentNick && opponentNick !== userId
+          ? opponentNick
           : "You";
 
   const goToMenu = useCallback(() => {
@@ -750,6 +813,7 @@ export default function PongCanvas() {
                   gap: 16,
                 }}
               >
+                {/* Left column - Controls */}
                 <div
                   style={{
                     borderRadius: 12,
@@ -785,6 +849,7 @@ export default function PongCanvas() {
                   </div>
                 </div>
 
+                {/* Right column - Settings + Ball */}
                 <div
                   style={{
                     borderRadius: 12,
@@ -849,6 +914,185 @@ export default function PongCanvas() {
                       Opponent: <b>{opponentLabel}</b>
                     </div>
                   )}
+
+                  {/* BALL CUSTOMISATION */}
+                  <div style={{ marginTop: 16 }}>
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        marginBottom: 8,
+                        color: "#111",
+                      }}
+                    >
+                      Ball
+                    </div>
+
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <div
+                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+                      >
+                        {[
+                          { id: "classic", label: "Classic" },
+                          { id: "neon", label: "Neon" },
+                          { id: "emoji", label: "Emoji" },
+                          { id: "soccer", label: "Soccer" },
+                          { id: "basketball", label: "Basketball" },
+                        ].map((opt) => {
+                          const active =
+                            ballSkin.kind === (opt.id as BallSkin["kind"]);
+                          return (
+                            <button
+                              key={opt.id}
+                              onClick={() => {
+                                if (opt.id === "classic")
+                                  setBallSkin({
+                                    kind: "classic",
+                                    color: "#EADCB3",
+                                    outline: false,
+                                  });
+                                else if (opt.id === "neon")
+                                  setBallSkin({
+                                    kind: "neon",
+                                    color: "#74c0fc",
+                                  });
+                                else if (opt.id === "emoji")
+                                  setBallSkin({
+                                    kind: "emoji",
+                                    char: "🏓",
+                                    scale: 2.6,
+                                  });
+                                else if (opt.id === "soccer")
+                                  setBallSkin({ kind: "soccer" });
+                                else if (opt.id === "basketball")
+                                  setBallSkin({ kind: "basketball" });
+                              }}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 10,
+                                border: active
+                                  ? "2px solid #111"
+                                  : "1px solid rgba(0,0,0,0.2)",
+                                background: active
+                                  ? "rgba(0,0,0,0.06)"
+                                  : "rgba(0,0,0,0.03)",
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                fontSize: 12,
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {ballSkin.kind === "classic" && (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 10,
+                            alignItems: "center",
+                          }}
+                        >
+                          <label style={{ fontSize: 12 }}>Color</label>
+                          <input
+                            type="color"
+                            value={ballSkin.color}
+                            onChange={(e) =>
+                              setBallSkin({
+                                ...ballSkin,
+                                color: e.target.value,
+                              })
+                            }
+                          />
+                          <label
+                            style={{
+                              fontSize: 12,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={ballSkin.outline}
+                              onChange={(e) =>
+                                setBallSkin({
+                                  ...ballSkin,
+                                  outline: e.target.checked,
+                                })
+                              }
+                            />
+                            Outline
+                          </label>
+                        </div>
+                      )}
+
+                      {ballSkin.kind === "neon" && (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 10,
+                            alignItems: "center",
+                          }}
+                        >
+                          <label style={{ fontSize: 12 }}>Glow</label>
+                          <input
+                            type="color"
+                            value={ballSkin.color}
+                            onChange={(e) =>
+                              setBallSkin({
+                                ...ballSkin,
+                                color: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {ballSkin.kind === "emoji" && (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 10,
+                            alignItems: "center",
+                          }}
+                        >
+                          <label style={{ fontSize: 12 }}>Emoji</label>
+                          <input
+                            style={{
+                              border: "1px solid rgba(0,0,0,0.2)",
+                              borderRadius: 8,
+                              padding: "6px 10px",
+                              width: 80,
+                            }}
+                            value={ballSkin.char}
+                            onChange={(e) =>
+                              setBallSkin({
+                                ...ballSkin,
+                                char: e.target.value.slice(0, 2),
+                              })
+                            }
+                            placeholder="🏓"
+                          />
+                          <label style={{ fontSize: 12 }}>Size</label>
+                          <input
+                            type="range"
+                            min={1.8}
+                            max={3.6}
+                            step={0.1}
+                            value={ballSkin.scale}
+                            onChange={(e) =>
+                              setBallSkin({
+                                ...ballSkin,
+                                scale: parseFloat(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -907,7 +1151,6 @@ export default function PongCanvas() {
                 ← Menu
               </button>
 
-              {/* Only allow starting a new game when NOT in tournament flow */}
               {!isTournamentFlow && (
                 <button
                   onClick={onPrimaryClick}
@@ -934,10 +1177,10 @@ export default function PongCanvas() {
         </div>
       )}
 
-      {/* CONFIRM TERMINATE MODAL (clicking backdrop resumes) */}
+      {/* CONFIRM TERMINATE MODAL */}
       {showConfirmTerminate && (
         <div
-          onClick={() => setShowConfirmTerminate(false)} // resume via effect
+          onClick={() => setShowConfirmTerminate(false)}
           style={{
             position: "absolute",
             inset: 0,
@@ -980,7 +1223,7 @@ export default function PongCanvas() {
               style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
             >
               <button
-                onClick={() => setShowConfirmTerminate(false)} // resume via effect
+                onClick={() => setShowConfirmTerminate(false)}
                 style={{
                   background: "transparent",
                   border: "1px solid rgba(255,255,255,0.25)",
@@ -995,7 +1238,7 @@ export default function PongCanvas() {
               </button>
               <button
                 onClick={() => {
-                  setPausedForConfirm(false); // block resume
+                  setPausedForConfirm(false);
                   setShowConfirmTerminate(false);
                   void onTerminateClick();
                 }}
@@ -1065,7 +1308,8 @@ function render(
   particles: readonly Particle[],
   flash: number,
   scale: number,
-  isRightAI: boolean
+  isRightAI: boolean,
+  skin: BallSkin
 ): void {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
@@ -1092,9 +1336,10 @@ function render(
   ctx.restore();
 
   // ball trail
+  const trailColor = skin.kind === "neon" ? COLORS.accent : COLORS.accent2;
   for (let i = 0; i < trail.length; i += 1) {
     const t = i / trail.length;
-    ctx.fillStyle = rgbaHex(COLORS.accent2, t * 0.6);
+    ctx.fillStyle = rgbaHex(trailColor, t * 0.6);
     const pos = trail[i];
     ctx.beginPath();
     ctx.arc(pos.x * w, pos.y * h, 6 * t + 2, 0, Math.PI * 2);
@@ -1115,7 +1360,7 @@ function render(
   ctx.shadowColor = "rgba(0,0,0,0.35)";
   ctx.shadowBlur = 10;
 
-  // LEFT (human)
+  // LEFT
   ctx.fillStyle = COLORS.text;
   const leftX = 18;
   const leftY = s.paddles[0] * h - h * 0.1;
@@ -1124,7 +1369,7 @@ function render(
   roundRect(ctx, leftX, leftY, leftW, leftH, 6);
   ctx.fill();
 
-  // RIGHT (may be AI)
+  // RIGHT
   ctx.fillStyle = COLORS.text;
   const rightX = w - 30;
   const rightY = s.paddles[1] * h - h * 0.1;
@@ -1133,7 +1378,7 @@ function render(
   roundRect(ctx, rightX, rightY, rightW, rightH, 6);
   ctx.fill();
 
-  // AI marker for right paddle (only when vs AI)
+  // AI marker
   if (isRightAI) {
     ctx.save();
     ctx.lineWidth = 3;
@@ -1163,11 +1408,11 @@ function render(
 
   ctx.restore();
 
-  // ball
-  ctx.fillStyle = COLORS.accent;
-  ctx.beginPath();
-  ctx.arc(s.ball.x * w, s.ball.y * h, 7, 0, Math.PI * 2);
-  ctx.fill();
+  // ball (skin aware)
+  const ballX = s.ball.x * w;
+  const ballY = s.ball.y * h;
+  const baseR = 7;
+  drawBall(ctx, ballX, ballY, baseR, skin);
 
   // score
   ctx.fillStyle = COLORS.text;
@@ -1182,6 +1427,100 @@ function render(
     ctx.fillStyle = rgbaHex(COLORS.accent, flash * 0.35);
     ctx.fillRect(0, 0, w, h);
   }
+}
+
+function drawBall(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  skin: BallSkin
+) {
+  if (skin.kind === "emoji") {
+    ctx.save();
+    ctx.font = `${Math.round(r * (skin.scale ?? 2.6))}px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(0,0,0,0.25)";
+    ctx.shadowBlur = 6;
+    ctx.fillText(skin.char || "🏓", x, y + 1);
+    ctx.restore();
+    return;
+  }
+
+  if (skin.kind === "neon") {
+    ctx.save();
+    ctx.shadowColor = skin.color;
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = skin.color;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  if (skin.kind === "basketball") {
+    ctx.save();
+    ctx.fillStyle = "#D97706";
+    ctx.beginPath();
+    ctx.arc(x, y, r + 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#1F2937";
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 1, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, r + 0.6, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, r + 0.6, Math.PI / 2, -Math.PI / 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - (r + 1), y);
+    ctx.lineTo(x + (r + 1), y);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (skin.kind === "soccer") {
+    ctx.save();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.arc(x, y, r + 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#1F2937";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 0.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - (r + 1), y);
+    ctx.lineTo(x + (r + 1), y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y - (r + 1));
+    ctx.lineTo(x, y + (r + 1));
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  // classic
+  ctx.save();
+  const color = skin.kind === "classic" ? skin.color : "#EADCB3";
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  if (skin.kind === "classic" && skin.outline) {
+    ctx.strokeStyle = "rgba(0,0,0,0.45)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function roundRect(
