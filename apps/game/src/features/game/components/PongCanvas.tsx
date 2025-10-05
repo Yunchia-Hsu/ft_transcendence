@@ -1,6 +1,6 @@
 import { PongAI } from "./AIOpponent.js";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import type { State, Vec } from "../engine/engine";
 import { createState, update, STEP } from "../engine/engine";
 import { useTranslations } from "@/localization";
@@ -78,6 +78,9 @@ export default function PongCanvas() {
   const { gameId } = useParams<{ gameId: string }>();
   const userId = useAuthStore((s) => s.userId);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTournamentFlow =
+    new URLSearchParams(location.search).get("f") === "tournaments";
 
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const view = useRef<ViewParams>({
@@ -264,11 +267,11 @@ export default function PongCanvas() {
       particles.current = [];
       flash.current = 0;
 
-      navigate(`/game/${g.game_id}`);
+      navigate(`/game/${g.game_id}${isTournamentFlow ? "?f=tournaments" : ""}`);
     } catch (e) {
       console.error("Failed to start new game:", e);
     }
-  }, [navigate, opponentId, userId]);
+  }, [navigate, opponentId, userId, isTournamentFlow]);
 
   // Pause when confirm opens; resume if cancelled
   useEffect(() => {
@@ -454,10 +457,17 @@ export default function PongCanvas() {
   }, [gameRunning, gameId, userId, opponentId, gameMode]);
 
   const onPrimaryClick = () => {
+    // If match already finished:
     if (completed || terminated) {
+      // In tournaments flow, NEVER open a new game.
+      if (isTournamentFlow) return;
+
+      // Outside tournaments, allow opening a fresh game (original behavior).
       void startNewGame();
       return;
     }
+
+    // Normal "Start" flow / countdown
     if (countdownTimer.current) {
       window.clearInterval(countdownTimer.current);
       countdownTimer.current = null;
@@ -887,25 +897,29 @@ export default function PongCanvas() {
               >
                 ← Menu
               </button>
-              <button
-                onClick={onPrimaryClick}
-                disabled={primaryDisabled}
-                style={{
-                  background: terminated ? "#EF4444" : "#10B981",
-                  border: "none",
-                  padding: "10px 20px",
-                  color: "white",
-                  fontSize: 16,
-                  cursor: primaryDisabled ? "not-allowed" : "pointer",
-                  borderRadius: 10,
-                  fontWeight: 900,
-                  opacity: primaryDisabled ? 0.6 : 1,
-                }}
-              >
-                {completing
-                  ? t.game.mainMenu.savingResult
-                  : t.game.mainMenu.startNewGame}
-              </button>
+
+              {/* Only allow starting a new game when NOT in tournament flow */}
+              {!isTournamentFlow && (
+                <button
+                  onClick={onPrimaryClick}
+                  disabled={primaryDisabled}
+                  style={{
+                    background: terminated ? "#EF4444" : "#10B981",
+                    border: "none",
+                    padding: "10px 20px",
+                    color: "white",
+                    fontSize: 16,
+                    cursor: primaryDisabled ? "not-allowed" : "pointer",
+                    borderRadius: 10,
+                    fontWeight: 900,
+                    opacity: primaryDisabled ? 0.6 : 1,
+                  }}
+                >
+                  {completing
+                    ? t.game.mainMenu.savingResult
+                    : t.game.mainMenu.startNewGame}
+                </button>
+              )}
             </div>
           </div>
         </div>

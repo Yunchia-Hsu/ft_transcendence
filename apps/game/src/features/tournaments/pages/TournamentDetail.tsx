@@ -1,4 +1,3 @@
-// apps/game/src/features/tournaments/pages/TournamentDetail.tsx
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { TournamentsApi } from "@/shared/api/tournaments";
@@ -20,16 +19,16 @@ export function TournamentDetail() {
   // Helper function to translate tournament status
   const getStatusTranslation = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending':
+      case "pending":
         return t.tournamentsPage.status.pending;
-      case 'ongoing':
+      case "ongoing":
         return t.tournamentsPage.status.ongoing;
-      case 'completed':
+      case "completed":
         return t.tournamentsPage.status.completed;
-      case 'cancelled':
+      case "cancelled":
         return t.tournamentsPage.status.cancelled;
       default:
-        return status; // fallback to original status if not found
+        return status; // fallback
     }
   };
 
@@ -40,7 +39,8 @@ export function TournamentDetail() {
   const [nick, setNick] = useState("");
   const needsUsername = useMemo(() => !userProfile?.username, [userProfile]);
   const hasDisplayName = useMemo(
-    () => !!userProfile?.displayname && userProfile.displayname.trim().length > 0,
+    () =>
+      !!userProfile?.displayname && userProfile.displayname.trim().length > 0,
     [userProfile]
   );
 
@@ -83,7 +83,8 @@ export function TournamentDetail() {
     }
     setBusy(true);
     try {
-      const nicknameToSend = nick.trim() || (hasDisplayName ? userProfile!.displayname!.trim() : "");
+      const nicknameToSend =
+        nick.trim() || (hasDisplayName ? userProfile!.displayname!.trim() : "");
       await TournamentsApi.join(id, token, nicknameToSend || undefined);
       await load();
     } finally {
@@ -132,7 +133,8 @@ export function TournamentDetail() {
     }
   };
 
-  if (loading || !detail) return <div className="p-6">{t.game.tournaments.loading}</div>;
+  if (loading || !detail)
+    return <div className="p-6">{t.game.tournaments.loading}</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -140,8 +142,10 @@ export function TournamentDetail() {
         <div>
           <h1 className="text-2xl font-bold">{detail.name}</h1>
           <div className="text-sm text-gray-600">
-            {t.game.tournaments.status} <span>{getStatusTranslation(detail.status)}</span> • {t.game.tournaments.size}:{" "}
-            {detail.size} • {t.game.tournaments.rounds} {detail.rounds}
+            {t.game.tournaments.status}{" "}
+            <span>{getStatusTranslation(detail.status)}</span> •{" "}
+            {t.game.tournaments.size}: {detail.size} •{" "}
+            {t.game.tournaments.rounds} {detail.rounds}
           </div>
         </div>
         <div className="flex gap-2">
@@ -158,7 +162,11 @@ export function TournamentDetail() {
                   className="border px-3 py-1 rounded"
                   value={nick}
                   onChange={(e) => setNick(e.target.value)}
-                  placeholder={needsUsername ? t.profile.labels.username : t.game.tournaments.nicknameOptional}
+                  placeholder={
+                    needsUsername
+                      ? t.profile.labels.username
+                      : t.game.tournaments.nicknameOptional
+                  }
                   required={needsUsername}
                 />
               )}
@@ -190,9 +198,13 @@ export function TournamentDetail() {
       </header>
 
       <section className="p-4 border rounded-lg">
-        <h2 className="font-semibold mb-3">{t.tournamentsPage.participants.title}</h2>
+        <h2 className="font-semibold mb-3">
+          {t.tournamentsPage.participants.title}
+        </h2>
         {detail.participants.length === 0 ? (
-          <p className="text-gray-600">{t.tournamentsPage.participants.nobodyYet}</p>
+          <p className="text-gray-600">
+            {t.tournamentsPage.participants.nobodyYet}
+          </p>
         ) : (
           <ul className="flex flex-wrap gap-2">
             {detail.participants.map((p) => (
@@ -205,9 +217,13 @@ export function TournamentDetail() {
       </section>
 
       <section className="p-4 border rounded-lg">
-        <h2 className="font-semibold mb-4">{t.tournamentsPage.bracket.title}</h2>
+        <h2 className="font-semibold mb-4">
+          {t.tournamentsPage.bracket.title}
+        </h2>
         {!bracket ? (
-          <p className="text-gray-600">{t.tournamentsPage.bracket.noBracketYet}</p>
+          <p className="text-gray-600">
+            {t.tournamentsPage.bracket.noBracketYet}
+          </p>
         ) : (
           <Bracket
             rounds={bracket.rounds}
@@ -215,6 +231,7 @@ export function TournamentDetail() {
             onReport={report}
             currentUserId={userId}
             disabled={busy || detail.status !== "ongoing"}
+            showRematch={false} // <-- hide any "Play again / Rematch" controls
           />
         )}
       </section>

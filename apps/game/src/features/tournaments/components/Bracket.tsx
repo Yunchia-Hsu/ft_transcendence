@@ -11,6 +11,8 @@ type Props = {
   /** Only a participant in the match may report (if provided). */
   currentUserId?: string | null;
   disabled?: boolean;
+  /** Kept for compatibility; rematch UI is intentionally not rendered. */
+  showRematch?: boolean;
 };
 
 export function Bracket({
@@ -21,6 +23,7 @@ export function Bracket({
   disabled,
 }: Props) {
   const { t } = useLang();
+
   const cols = useMemo(() => {
     const bucket: Record<number, BracketMatch[]> = {};
     for (const m of matches) {
@@ -40,7 +43,9 @@ export function Bracket({
       >
         {Array.from({ length: rounds }, (_, i) => i + 1).map((r) => (
           <div key={r} className="space-y-4">
-            <h3 className="text-sm font-semibold text-gray-600">{t.tournamentsPage.bracket.round} {r}</h3>
+            <h3 className="text-sm font-semibold text-gray-600">
+              {t.tournamentsPage.bracket.round} {r}
+            </h3>
             {(cols[r] ?? []).map((m) => (
               <MatchCard
                 key={`${m.round}-${m.matchIndex}`}
@@ -69,7 +74,7 @@ function MatchCard({
   onReport: (round: number, matchIndex: number, winnerUserId: string) => void;
   currentUserId: string | null;
   disabled?: boolean;
-  t: any; // Using any for simplicity, could be more specific
+  t: any; // Using any for simplicity
 }) {
   const winner = m.winnerUserId;
   const p1Id = m.p1.userId;
@@ -90,7 +95,7 @@ function MatchCard({
   const p2Active = !!winner && winner === p2Id;
 
   const reportP1 = () => {
-    if (!p1Id) return; // TS: now narrowed
+    if (!p1Id) return;
     onReport(m.round, m.matchIndex, p1Id);
   };
   const reportP2 = () => {
@@ -98,23 +103,32 @@ function MatchCard({
     onReport(m.round, m.matchIndex, p2Id);
   };
 
+  // Only allow opening the game if it exists AND there is no winner yet
+  const canOpenGame = !!m.gameId && !winner;
+  const gameHref = canOpenGame ? `/game/${m.gameId}?f=tournaments` : null;
+
   return (
     <div className="border rounded-lg p-3 bg-white">
       <div className="text-xs text-gray-500 mb-2">
-        {t.tournamentsPage.bracket.match}{m.matchIndex + 1}
+        {t.tournamentsPage.bracket.match}
+        {m.matchIndex + 1}
       </div>
 
       <Row label={m.p1.nickname ?? "—"} active={p1Active} t={t} />
       <Row label={m.p2.nickname ?? "—"} active={p2Active} t={t} />
 
-      {m.gameId ? (
+      {gameHref ? (
         <div className="mt-2">
           <Link
-            to={`/game/${m.gameId}`}
+            to={gameHref}
             className="text-xs inline-block px-2 py-1 bg-indigo-50 rounded border border-indigo-100 hover:bg-indigo-100"
           >
             {t.tournamentsPage.bracket.openGame}
           </Link>
+        </div>
+      ) : winner ? (
+        <div className="mt-2 text-[11px] uppercase tracking-wide text-emerald-700">
+          {t.tournamentsPage.bracket.resultRecorded}
         </div>
       ) : null}
 
@@ -137,11 +151,11 @@ function MatchCard({
             {t.tournamentsPage.bracket.p2Wins}
           </button>
         </div>
-      ) : (
+      ) : !winner ? (
         <div className="mt-2 text-xs text-gray-500">
-          {winner ? t.tournamentsPage.bracket.resultRecorded : t.tournamentsPage.bracket.waitingForPlayers}
+          {t.tournamentsPage.bracket.waitingForPlayers}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -158,7 +172,7 @@ function Row({ label, active, t }: { label: string; active: boolean; t: any }) {
       <span className="text-sm">{label}</span>
       {active ? (
         <span className="text-[10px] uppercase font-semibold text-emerald-700">
-{t.tournamentsPage.bracket.winner}
+          {t.tournamentsPage.bracket.winner}
         </span>
       ) : null}
     </div>
