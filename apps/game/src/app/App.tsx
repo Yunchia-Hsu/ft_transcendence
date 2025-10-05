@@ -42,20 +42,16 @@ function NavBar() {
             <Link to="/friends" className="text-sm text-blue-700">
               {t.nav.friends}
             </Link>
+            <Link to="/tournaments" className="text-sm text-blue-700">
+              {t.nav.tournaments}
+            </Link>
             {!tfa && (
               <Link to="/enable-2fa" className="text-sm text-blue-700">
                 {t.nav.enable2fa}
               </Link>
             )}
-            <Link to="/quickplay" className="text-sm text-blue-700">
-              {t.nav.quickPlay}
-            </Link>
           </>
         )}
-
-        <Link to="/tournaments" className="text-sm text-blue-700">
-          {t.nav.tournaments}
-        </Link>
       </div>
 
       <div className="text-sm">
