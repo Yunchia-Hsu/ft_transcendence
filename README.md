@@ -19,10 +19,6 @@
 - **Monorepo Structure** - Clean code organization with shared packages
 - **Docker** - Containerized deployment for consistency across environments
 
-### Features
-- **i18n** - Built-in internationalization support
-- **Real-time Gaming** - Optimized for low-latency gameplay experience
-
 ## 🎨 Styling Strategy
 
 This project uses a hybrid styling approach:
@@ -38,9 +34,8 @@ This project uses a hybrid styling approach:
 - Complex game-specific layouts
 - Performance-critical animations
 - Pixel-perfect game elements
-
-## Notable features:
-
+## ✨ Features
+- Real-time Gaming
 - 2FA Authentication with JWT tokens
 - Google Auth
 - AI Opponent
