@@ -1,4 +1,56 @@
-# ft_transcendence
+# Fullstack Pong Game with AI opponent
+## 🛠️ Tech Stack
+
+### Frontend
+- **React 19** - Latest React features with modern patterns
+- **TypeScript** - Full type safety across the application
+- **Tailwind CSS** - Utility-first styling for UI components
+- **Custom CSS** - Game-specific styles for canvas and pixel-perfect rendering
+
+### Backend
+- **Hono.js** - Fast, lightweight web framework optimized for edge deployment
+- **TypeScript** - End-to-end type safety
+- **Zod** - Runtime schema validation
+
+### Database
+- **SQLite** - Lightweight, embedded database for simplicity and performance
+
+### Architecture
+- **Monorepo Structure** - Clean code organization with shared packages
+- **Docker** - Containerized deployment for consistency across environments
+
+### Features
+- **i18n** - Built-in internationalization support
+- **Real-time Gaming** - Optimized for low-latency gameplay experience
+
+## 🎨 Styling Strategy
+
+This project uses a hybrid styling approach:
+
+**Tailwind CSS** handles:
+- UI components (buttons, forms, layouts)
+- Responsive design utilities
+- Typography and spacing systems
+- Color schemes and theming
+
+**Custom CSS** manages:
+- Game canvas and viewport rendering
+- Complex game-specific layouts
+- Performance-critical animations
+- Pixel-perfect game elements
+
+## Notable features:
+
+- 2FA Authentication with JWT tokens
+- Google Auth
+- AI Opponent
+- Match history and dashboard
+- Friend requests sending in real time
+- User customizaton
+- Option to run with Docker
+- Multiple language support
+- Different play modes (tournament)
+
 
 ## Overview
 
