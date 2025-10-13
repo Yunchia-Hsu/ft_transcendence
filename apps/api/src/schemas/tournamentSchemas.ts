@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { TournamentTypeEnum, TournamentStatusEnum } from "@pong/types";
+import { TournamentTypeEnum, TournamentStatusEnum } from "../types/local-tournament.js";
 
 const tournamentTypeCoerced = z.preprocess((v) => {
   if (typeof v === "string") return v.toLowerCase();

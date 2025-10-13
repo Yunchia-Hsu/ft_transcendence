@@ -1,11 +1,11 @@
 import { randomUUID } from "crypto";
 import type { Kysely } from "kysely";
-import type { DatabaseSchema } from "infra/db/index.js";
+import type { DatabaseSchema } from "../../../../packages/infra/db/index.js";
 import {
   TournamentTypeEnum,
   TournamentStatusEnum,
   type TournamentDTO,
-} from "@pong/types";
+} from "../types/local-tournament.js";
 
 export const createTournament = async (
   db: Kysely<DatabaseSchema>,

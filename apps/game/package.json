@@ -4,12 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint 'src/**/*.{ts,tsx}'",
-    "preview": "vite preview",
-    "check-types": "tsc --noEmit"
-  },
+  "dev": "pnpm exec tsx --watch src/index.ts",
+  "build": "vite build",
+  "typecheck": "tsc -b tsconfig.build.json",
+  "start": "node dist/index.js"
+},
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

@@ -1,37 +1,35 @@
 # VCS & editor junk
-
 .git
-.gitignore
 .svn
 .DS_Store
 .vscode
 .idea
 
-# Builds / caches
-
+# Installs / caches
 **/node_modules
-**/dist
 **/.turbo
 **/.next
 **/coverage
-**/\*.log
+**/*.log
 
-# Local env & secrets (keep prod env files if you need them)
-
-.env
-\*.env.local
-!.env.production
-
-# SQLite files in repo (Docker uses a volume for DB)
-
-packages/infra/db/_.sqlite
-packages/infra/db/_.db
-
-.git
-node_modules
-apps/**/node_modules
-packages/**/node_modules
-dist
+# Builds (мы копируем их из builder-стейджа, поэтому в контекст не нужны)
+# добавь реинклюды:
+!apps/api/dist/**
+!packages/infra/dist/**
 build
-Dockerfile
-docker-compose.yml
+
+# Local env & secrets
+# По умолчанию — не тащим, НО оставляем api/.env, т.к. оно нужно в образ
+.env
+*.env.local
+!.env.production
+!apps/api/.env
+!apps/api/.env.local
+
+# SQLite в репозитории не нужны (в контейнере том)
+packages/infra/db/*.sqlite
+packages/infra/db/*.db
+
+# Не игнорировать эти файлы (оставьте их доступны Docker/Compose)
+# Dockerfile
+# docker-compose.yml

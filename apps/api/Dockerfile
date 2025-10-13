@@ -1,23 +1,32 @@
+# apps/api/Dockerfile
 FROM node:20-alpine
 
-RUN npm install -g pnpm
+# для bcrypt/better-sqlite3/sqlite3
+RUN apk add --no-cache python3 make g++ libc6-compat && npm i -g pnpm
+
 WORKDIR /app
 
-# Manifests (enable caching & workspace linking)
+# только манифесты (для prod deps)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/infra/package.json ./packages/infra/
 COPY packages/types/package.json ./packages/types/
 COPY apps/api/package.json ./apps/api/
 
-RUN pnpm install --frozen-lockfile --workspace-root
+# ставим ТОЛЬКО runtime-зависимости по воркспейсу
+RUN pnpm install --prod --frozen-lockfile --workspace-root
 
-# Source
-COPY apps ./apps
-COPY packages ./packages
+# копируем уже СОБРАННЫЕ артефакты
+# (ты их собрал на шаге 1)
+COPY apps/api/dist ./apps/api/dist
+COPY packages/infra/dist ./packages/infra/dist
 
-RUN mkdir -p packages/infra/db
+# (если у тебя .env лежит в apps/api/.env и код грузит его из dist/apps/api/.env)
+COPY apps/api/.env ./apps/api/dist/apps/api/.env
 
 WORKDIR /app/apps/api
-EXPOSE 4001
-CMD ["pnpm", "dev"]
+ENV NODE_ENV=production
+ENV PORT=4001
+ENV DB_DIR=/app/data
 
+EXPOSE 4001
+CMD ["node","dist/apps/api/src/index.js"]

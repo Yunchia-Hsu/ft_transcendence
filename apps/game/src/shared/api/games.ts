@@ -42,7 +42,7 @@ export const GamesApi = {
     | { ok: true; game: Game }
     | { ok: false; code: "ALREADY_COMPLETED" | "GAME_NOT_FOUND" }
   > {
-    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:4001";
+    const base = import.meta.env.VITE_API_BASE_URL || "";
     const res = await fetch(`${base}/api/games/${gameId}/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -71,7 +71,7 @@ export const GamesApi = {
         code: "GAME_NOT_FOUND" | "ALREADY_COMPLETED" | "ALREADY_TERMINATED";
       }
   > {
-    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:4001";
+    const base = import.meta.env.VITE_API_BASE_URL || "/api";
     const res = await fetch(`${base}/api/games/${gameId}/terminate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

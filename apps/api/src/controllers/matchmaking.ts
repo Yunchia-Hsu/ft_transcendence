@@ -1,7 +1,7 @@
 // controllers/matchmaking.ts
 import type { Kysely } from "kysely";
 import { randomUUID } from "crypto";
-import type { DatabaseSchema, Game } from "infra/db/index.js";
+import type { DatabaseSchema, Game } from "../../../../packages/infra/db/index.js";
 
 export type EnqueueResult =
   | { type: "QUEUED"; userId: string; mode: "1v1" }

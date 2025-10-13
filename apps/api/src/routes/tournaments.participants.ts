@@ -1,6 +1,6 @@
 // apps/api/src/routes/tournaments.participants.ts
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "infra/db/index.js";
+import { db } from "../../../../packages/infra/db/index.js";
 import { verifyToken } from "../utils/auth.js";
 import {
   tournamentIdParamSchema,

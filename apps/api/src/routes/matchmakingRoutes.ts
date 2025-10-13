@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
-import { db } from "infra/db/index.js";
+import { db } from "../../../../packages/infra/db/index.js";
 import { enqueue, dequeue, getStatus } from "../controllers/matchmaking.js";
 import {
   enqueueBodySchema,

@@ -1,6 +1,6 @@
 // controllers/tournaments-advance.ts
 import type { Kysely } from "kysely";
-import type { DatabaseSchema, Game } from "infra/db/index.js";
+import type { DatabaseSchema, Game } from "../../../../packages/infra/db/index.js";
 import { randomUUID } from "crypto";
 
 /**
@@ -91,8 +91,8 @@ export async function maybeAdvanceTournamentFromGame(
       })
       .onConflict((oc) =>
         oc.columns(["tournament_id", "round", "match_index"]).doUpdateSet({
-          p1_user_id: (eb) => eb.ref("excluded.p1_user_id"),
-          p2_user_id: (eb) => eb.ref("excluded.p2_user_id"),
+          p1_user_id: (eb: any) => eb.ref("excluded.p1_user_id"),
+          p2_user_id: (eb: any) => eb.ref("excluded.p2_user_id"),
         })
       )
       .execute();

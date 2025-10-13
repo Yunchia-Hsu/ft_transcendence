@@ -1,9 +1,14 @@
 {
-  "name": "infra",
+  "name": "@pong/infra",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "index.js",
+  "main": "./dist/db/index.js",
+  "types": "./dist/db/index.d.ts",
+  "exports": {
+    ".": "./dist/db/index.js",
+    "./db": "./dist/db/index.js"
+  },
   "scripts": {
     "build": "tsc -p ./tsconfig.json",
     "dev": "tsx db/index.ts"

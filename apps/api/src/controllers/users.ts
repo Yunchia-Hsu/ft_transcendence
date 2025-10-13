@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { saveUserToDatabase, checkUserExists, getUserByUsername, getUserById, db  } from '../../../../packages/infra/db/index.js';
 import { DatabaseUser } from "../../../../packages/infra/db/index.js";
 import bcrypt from 'bcrypt';

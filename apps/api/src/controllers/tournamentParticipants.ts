@@ -1,6 +1,6 @@
 // controllers/tournamentParticipants.ts
 import type { Kysely } from "kysely";
-import type { DatabaseSchema } from "infra/db/index.js";
+import type { DatabaseSchema } from "../../../../packages/infra/db/index.js";
 
 /* ---------- Result types ---------- */
 type JoinOk = { ok: true; joinedAt: string; nickname: string };

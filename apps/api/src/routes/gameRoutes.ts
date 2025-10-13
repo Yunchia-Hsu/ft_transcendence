@@ -1,6 +1,6 @@
 // apps/server/src/api/routes/gameRoutes.ts
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
-import { db } from "infra/db/index.js";
+import { db } from "../../../../packages/infra/db/index.js";
 import {
   gameStartSchema,
   moveSchema,
@@ -27,7 +27,7 @@ import {
   terminateGame,
 } from "../controllers/games.js";
 import { maybeAdvanceTournamentFromGame } from "../controllers/tournaments-advance.js";
-import type { Game } from "infra/db/index.js";
+import type { Game } from "../../../../packages/infra/db/index.js";
 
 type Result =
   | { ok: true; game: Game }

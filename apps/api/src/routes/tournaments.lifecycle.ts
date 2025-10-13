@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "infra/db/index.js"; // ✅ singleton
+import { db } from "../../../../packages/infra/db/index.js"; // ✅ singleton
 import { verifyToken } from "../utils/auth.js";
 import {
   startTournament,

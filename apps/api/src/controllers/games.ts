@@ -1,6 +1,6 @@
 // apps/server/src/api/controllers/games.ts
 import type { Kysely } from "kysely";
-import type { DatabaseSchema, Game } from "infra/db/index.js";
+import type { DatabaseSchema, Game } from "../../../../packages/infra/db/index.js";
 import { randomUUID } from "crypto";
 
 export const startGame = async (

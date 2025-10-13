@@ -1,7 +1,7 @@
 // controllers/tournamentLifecycle.ts
 import { randomUUID } from "crypto";
 import type { Kysely } from "kysely";
-import type { DatabaseSchema } from "infra/db/index.js";
+import type { DatabaseSchema } from "../../../../packages/infra/db/index.js";
 
 /* ---------- Types ---------- */
 export type StartOk = {
