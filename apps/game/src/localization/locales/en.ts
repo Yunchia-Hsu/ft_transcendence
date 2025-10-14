@@ -69,6 +69,7 @@ export const en: Translations = {
     mainMenu: {
       title: "No one cares if you win.",
       playWithYourself: "🧍‍♂️ Play with yourself",
+      playWithFriend: "🧑‍🤝‍🧑 Play with Friend",
       playWithAI: "🎮 Play with AI opponent",
       tournaments: "🏆 Tournaments",
       starting: "Starting…",

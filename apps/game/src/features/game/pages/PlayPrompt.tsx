@@ -29,7 +29,7 @@ export default function PlayPrompt() {
 
   const helloText = t?.common?.hello ?? "Hello";
 
-  const [loading, setLoading] = useState<"self" | "ai" | null>(null);
+  const [loading, setLoading] = useState<"self" | "ai" | "friend" | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const startSelf = async () => {
@@ -62,6 +62,26 @@ export default function PlayPrompt() {
     }
   };
 
+  // 🧑‍🤝‍🧑 Play with Friend
+  const startFriend = async () => {
+    if (!userId) return;
+    setErr(null);
+    setLoading("friend");
+    try {
+      // Option 1: Navigate to your Friends page to select who to play with
+      navigate("/friends");
+
+      // Option 2 (later): directly start a game if you already know friendId
+      // const game = await GamesApi.start({ player1: userId, player2: friendId });
+      // navigate(`/game/${game.game_id}`);
+    } catch (e: unknown) {
+      const safe = e as StartError;
+      setErr(safe.message ?? "Failed to start friend game");
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const toTournaments = () => navigate("/tournaments");
 
   return (
@@ -73,7 +93,7 @@ export default function PlayPrompt() {
         flex flex-col items-center justify-center gap-6 px-4 py-6
       "
     >
-      {/* 🔥 Neon greeting UNDER the popup, responsive & flexible */}
+      {/* 🔥 Neon greeting UNDER the popup */}
       {registeredName && (
         <div className="w-full max-w-5xl px-2">
           <p
@@ -93,7 +113,8 @@ export default function PlayPrompt() {
           </p>
         </div>
       )}
-      {/* subtle decorative blobs */}
+
+      {/* decorative blobs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-16 -left-20 h-56 w-56 rounded-full bg-sky-300/30 blur-3xl" />
         <div className="absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-fuchsia-300/30 blur-3xl" />
@@ -128,6 +149,7 @@ export default function PlayPrompt() {
 
           {/* Actions */}
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Play Yourself */}
             <button
               onClick={startSelf}
               disabled={!userId || !!loading}
@@ -139,13 +161,33 @@ export default function PlayPrompt() {
                 active:translate-y-[0px]
                 transition-all disabled:opacity-60
               "
-              title="Start a local game (you vs you)"
             >
               {loading === "self"
                 ? t.game.mainMenu.starting
                 : t.game.mainMenu.playWithYourself}
             </button>
 
+            {/* Play with Friend */}
+            <button
+              onClick={startFriend}
+              disabled={!userId || !!loading}
+              className="
+                inline-flex items-center justify-center px-6 py-3 rounded-xl
+                bg-white/70 border border-sky-200
+                text-sky-700 font-semibold shadow
+                hover:bg-sky-50 hover:border-sky-300
+                hover:translate-y-[-2px]
+                active:translate-y-[0px]
+                transition-all disabled:opacity-60
+              "
+              title="Start a game with a friend"
+            >
+              {loading === "friend"
+                ? t.game.mainMenu.starting
+                : t.game.mainMenu.playWithFriend}
+            </button>
+
+            {/* Tournaments */}
             <button
               onClick={toTournaments}
               className="
@@ -157,11 +199,11 @@ export default function PlayPrompt() {
                 active:translate-y-[0px]
                 transition-all
               "
-              title="Browse & join tournaments"
             >
               {t.game.mainMenu.tournaments}
             </button>
 
+            {/* Play vs AI */}
             <button
               onClick={startAI}
               disabled={!userId || !!loading}
@@ -174,7 +216,6 @@ export default function PlayPrompt() {
                 active:translate-y-[0px]
                 transition-all disabled:opacity-60
               "
-              title="Start a game vs AI"
             >
               {loading === "ai"
                 ? t.game.mainMenu.starting

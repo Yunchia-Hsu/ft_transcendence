@@ -73,6 +73,7 @@ export type GameStrings = {
   mainMenu: {
     title: string;
     playWithYourself: string;
+    playWithFriend: string;
     playWithAI: string;
     tournaments: string;
     starting: string;
