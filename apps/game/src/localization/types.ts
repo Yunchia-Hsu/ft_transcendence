@@ -1,4 +1,4 @@
-export type LanguageCode = 'en' | 'ru' | 'zh';
+export type LanguageCode = "en" | "ru" | "zh";
 
 export type NavStrings = {
   enable2fa: string;
@@ -225,6 +225,8 @@ export type FriendsPageStrings = {
 };
 
 // Tournament page translations
+// apps/game/src/localization/types.ts (or wherever your type is declared)
+
 export type TournamentsPageStrings = {
   title: string;
   createNew: string;
@@ -236,12 +238,21 @@ export type TournamentsPageStrings = {
   noTournaments: string;
   placeholder: string;
   open: string;
+  none: string;
+  completed: string;
+  pending: string;
+  completedMatches: string;
+  statusTitle: string;
+
+  nextMatch: string;
+  noUpcomingMatch: string;
   status: {
     pending: string;
     ongoing: string;
     completed: string;
     cancelled: string;
   };
+
   bracket: {
     title: string;
     noBracketYet: string;
@@ -253,7 +264,9 @@ export type TournamentsPageStrings = {
     resultRecorded: string;
     waitingForPlayers: string;
     winner: string;
+    noScore: string;
   };
+
   participants: {
     title: string;
     nobodyYet: string;

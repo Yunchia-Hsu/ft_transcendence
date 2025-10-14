@@ -1,16 +1,22 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import type {
   BracketResponse,
   TournamentDetail as TDetail,
 } from "@/shared/api/types";
 import { Link } from "react-router-dom";
 import { useLang } from "@/localization";
+import { GamesApi } from "@/shared/api/games";
 
 type Props = {
-  detail: TDetail; // from TournamentsApi.get(id)
-  bracket: BracketResponse; // from TournamentsApi.bracket(id)
-  currentUserId?: string | null; // logged-in user (for "Your next match")
-  userName?: string | null; // <-- NEW: name to greet the user with
+  detail: TDetail;
+  bracket: BracketResponse;
+  currentUserId?: string | null;
+  userName?: string | null;
+};
+
+type GameScore = {
+  score: string;
+  status: string;
 };
 
 export function TournamentDashboard({
@@ -20,37 +26,49 @@ export function TournamentDashboard({
   userName,
 }: Props) {
   const { t } = useLang();
+  const [gameScores, setGameScores] = useState<Record<string, GameScore>>({});
+
+  // ✅ Fetch backend game scores & statuses
+  useEffect(() => {
+    const fetchScores = async () => {
+      const ids = bracket.matches.map((m) => m.gameId).filter(Boolean);
+      if (ids.length === 0) return;
+
+      const newScores: Record<string, GameScore> = {};
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const g = await GamesApi.get(id!);
+            if (g) newScores[id!] = { score: g.score, status: g.status };
+          } catch (e) {
+            console.warn("Failed to load game", id, e);
+          }
+        })
+      );
+      setGameScores(newScores);
+    };
+    void fetchScores();
+  }, [bracket]);
 
   const stats = useMemo(() => {
-    const allMatches = bracket.matches;
-    const total = allMatches.length;
-
-    const completed = allMatches.filter((m) => !!m.winnerUserId).length;
+    const all = bracket.matches;
+    const total = all.length;
+    const completed = all.filter((m) => !!m.winnerUserId).length;
     const pending = total - completed;
 
     const nextMatch = currentUserId
-      ? allMatches
-          .filter((m) => !m.winnerUserId)
-          .find(
-            (m) =>
-              m.p1.userId === currentUserId || m.p2.userId === currentUserId
-          )
+      ? all.find(
+          (m) =>
+            !m.winnerUserId &&
+            (m.p1.userId === currentUserId || m.p2.userId === currentUserId)
+        )
       : undefined;
 
-    const byRound: Record<number, { total: number; done: number }> = {};
-    for (let r = 1; r <= bracket.rounds; r++)
-      byRound[r] = { total: 0, done: 0 };
-    for (const m of allMatches) {
-      byRound[m.round] ??= { total: 0, done: 0 };
-      byRound[m.round].total++;
-      if (m.winnerUserId) byRound[m.round].done++;
-    }
-
-    const pendingList = allMatches
+    const pendingList = all
       .filter((m) => !m.winnerUserId)
       .sort((a, b) => a.round - b.round || a.matchIndex - b.matchIndex);
 
-    const finishedList = allMatches
+    const finishedList = all
       .filter((m) => !!m.winnerUserId)
       .sort((a, b) => a.round - b.round || a.matchIndex - b.matchIndex);
 
@@ -59,7 +77,6 @@ export function TournamentDashboard({
       completed,
       pending,
       progressPct: total > 0 ? Math.round((completed / total) * 100) : 0,
-      byRound,
       nextMatch,
       pendingList,
       finishedList,
@@ -71,29 +88,29 @@ export function TournamentDashboard({
     `${t.tournamentsPage.bracket.match}${m.matchIndex + 1}`;
 
   const buildGameHref = (m: BracketResponse["matches"][number]) => {
-    if (!m.gameId || m.winnerUserId) return null;
+    if (!m.gameId) return null;
+    const status = gameScores[m.gameId]?.status;
+    if (status === "Completed" || status === "Terminated") return null;
 
     const isP1 = currentUserId && m.p1.userId === currentUserId;
     const isP2 = currentUserId && m.p2.userId === currentUserId;
-
-    const oppNick = isP1
-      ? m.p2.nickname || ""
-      : isP2
-        ? m.p1.nickname || ""
-        : "";
-
+    const oppNick = isP1 ? m.p2.nickname : isP2 ? m.p1.nickname : "";
     const qs = new URLSearchParams({ f: "tournaments" });
     if (oppNick) qs.set("oppNick", oppNick);
-
     return `/game/${m.gameId}?${qs.toString()}`;
   };
 
+  const renderScore = (gameId?: string) =>
+    gameId && gameScores[gameId]
+      ? gameScores[gameId].score
+      : (t.tournamentsPage.bracket.noScore ?? "—");
+
   return (
     <div className="space-y-6">
-      {/* ===== Title / Greeting ===== */}
+      {/* Header */}
       <section className="flex items-end justify-between">
         <h1 className="text-xl sm:text-2xl font-bold">
-          Here is your Dashboard{userName ? `, ${userName}` : ""}.
+          Here is your stat {userName ? `, ${userName}` : ""}.
         </h1>
         <div className="text-sm text-gray-500">
           {t.tournamentsPage.title ?? "Tournament"}:{" "}
@@ -101,7 +118,7 @@ export function TournamentDashboard({
         </div>
       </section>
 
-      {/* Top KPIs */}
+      {/* KPIs */}
       <section className="grid md:grid-cols-4 sm:grid-cols-2 grid-cols-1 gap-4">
         <KpiCard label={t.tournamentsPage.size} value={String(detail.size)} />
         <KpiCard
@@ -119,7 +136,7 @@ export function TournamentDashboard({
         />
       </section>
 
-      {/* Overall progress */}
+      {/* Progress */}
       <section className="p-4 border rounded-lg bg-white">
         <h3 className="font-semibold mb-3">
           {t.tournamentsPage.bracket.title}
@@ -131,36 +148,15 @@ export function TournamentDashboard({
         </div>
       </section>
 
-      {/* Round progress */}
-      <section className="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-4">
-        {Array.from({ length: bracket.rounds }, (_, i) => i + 1).map((r) => {
-          const br = stats.byRound[r];
-          const pct = br.total > 0 ? Math.round((br.done / br.total) * 100) : 0;
-          return (
-            <div key={r} className="p-4 border rounded-lg bg-white">
-              <div className="font-semibold mb-2">{roundTitle(r)}</div>
-              <ProgressBar percent={pct} />
-              <div className="text-xs text-gray-600 mt-2">
-                {br.done}/{br.total}
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
-      {/* Your next match */}
+      {/* Next Match */}
       {currentUserId && (
         <section className="p-4 border rounded-lg bg-white">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">
-              {t.tournamentsPage.nextMatch ?? "Your next match"}
-            </h3>
-          </div>
-
+          <h3 className="font-semibold mb-2">
+            {t.tournamentsPage.nextMatch ?? "Your next match"}
+          </h3>
           {!stats.nextMatch ? (
-            <p className="text-gray-600 mt-2">
-              {t.tournamentsPage.noUpcomingMatch ??
-                "No upcoming match found for you."}
+            <p className="text-gray-600">
+              {t.tournamentsPage.noUpcomingMatch ?? "No upcoming match."}
             </p>
           ) : (
             <NextMatchCard
@@ -168,43 +164,61 @@ export function TournamentDashboard({
               currentUserId={currentUserId}
               title={matchTitle(stats.nextMatch)}
               gameHref={buildGameHref(stats.nextMatch)}
+              score={renderScore(stats.nextMatch.gameId)}
+              status={
+                stats.nextMatch.gameId
+                  ? gameScores[stats.nextMatch.gameId]?.status
+                  : undefined
+              }
             />
           )}
         </section>
       )}
 
-      {/* Pending matches */}
+      {/* Waiting For Players */}
       <section className="p-4 border rounded-lg bg-white">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">
-            {t.tournamentsPage.bracket.waitingForPlayers}
-          </h3>
-          <span className="text-sm text-gray-500">{stats.pending}</span>
-        </div>
+        <h3 className="font-semibold mb-2">
+          {t.tournamentsPage.bracket.waitingForPlayers}
+        </h3>
         {stats.pendingList.length === 0 ? (
-          <p className="text-gray-600 mt-2">
-            {t.tournamentsPage.none ?? "None"}
-          </p>
+          <p className="text-gray-600">{t.tournamentsPage.none ?? "None"}</p>
         ) : (
-          <ul className="mt-3 space-y-2">
+          <ul className="space-y-2">
             {stats.pendingList.map((m) => {
+              const status = m.gameId
+                ? gameScores[m.gameId]?.status
+                : undefined;
               const href = buildGameHref(m);
+
+              const isCompleted =
+                status === "Completed" || status === "Terminated";
+
               return (
                 <li
                   key={`${m.round}-${m.matchIndex}`}
                   className="border rounded p-3 flex items-center justify-between"
                 >
                   <div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 mb-1">
                       {roundTitle(m.round)} • {matchTitle(m)}
                     </div>
                     <div className="font-medium">
                       {m.p1.nickname ?? "—"}{" "}
                       <span className="text-gray-400">vs</span>{" "}
-                      {m.p2.nickname ?? "—"}
+                      {m.p2.nickname ?? "—"}{" "}
+                      <span className="ml-1 text-xs text-gray-500">
+                        ({renderScore(m.gameId)})
+                      </span>
                     </div>
                   </div>
-                  {href ? (
+
+                  {isCompleted ? (
+                    <span className="text-xs text-emerald-600 font-medium">
+                      {status === "Terminated"
+                        ? "Game terminated"
+                        : "Game completed"}
+                    </span>
+                  ) : href ? (
                     <Link
                       to={href}
                       className="px-2 py-1 text-xs bg-indigo-50 rounded border border-indigo-100 hover:bg-indigo-100"
@@ -212,9 +226,7 @@ export function TournamentDashboard({
                       {t.tournamentsPage.bracket.openGame}
                     </Link>
                   ) : (
-                    <span className="text-xs text-gray-400">
-                      {t.tournamentsPage.bracket.noGameYet ?? "No game yet"}
-                    </span>
+                    <span className="text-xs text-gray-400">No game yet</span>
                   )}
                 </li>
               );
@@ -223,20 +235,15 @@ export function TournamentDashboard({
         )}
       </section>
 
-      {/* Finished matches */}
+      {/* Completed Matches */}
       <section className="p-4 border rounded-lg bg-white">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">
-            {t.tournamentsPage.completedMatches ?? "Completed matches"}
-          </h3>
-          <span className="text-sm text-gray-500">{stats.completed}</span>
-        </div>
+        <h3 className="font-semibold mb-2">
+          {t.tournamentsPage.completedMatches ?? "Completed matches"}
+        </h3>
         {stats.finishedList.length === 0 ? (
-          <p className="text-gray-600 mt-2">
-            {t.tournamentsPage.none ?? "None"}
-          </p>
+          <p className="text-gray-600">{t.tournamentsPage.none ?? "None"}</p>
         ) : (
-          <ul className="mt-3 space-y-2">
+          <ul className="space-y-2">
             {stats.finishedList.map((m) => (
               <li
                 key={`${m.round}-${m.matchIndex}`}
@@ -249,7 +256,10 @@ export function TournamentDashboard({
                   <div>
                     {m.p1.nickname ?? "—"}{" "}
                     <span className="text-gray-400">vs</span>{" "}
-                    {m.p2.nickname ?? "—"}
+                    {m.p2.nickname ?? "—"}{" "}
+                    <span className="ml-1 text-xs text-gray-500">
+                      ({renderScore(m.gameId)})
+                    </span>
                   </div>
                   <div className="text-xs uppercase tracking-wide text-emerald-700">
                     {t.tournamentsPage.bracket.winner}:{" "}
@@ -269,7 +279,7 @@ export function TournamentDashboard({
   );
 }
 
-/* -------------------- Small UI bits -------------------- */
+/* --- Helpers --- */
 
 function KpiCard({
   label,
@@ -284,7 +294,7 @@ function KpiCard({
     <div className="p-4 border rounded-lg bg-white">
       <div className="text-xs text-gray-500">{label}</div>
       <div className="text-2xl font-bold">{value}</div>
-      {sub ? <div className="text-xs text-gray-500 mt-1">{sub}</div> : null}
+      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
     </div>
   );
 }
@@ -303,15 +313,20 @@ function NextMatchCard({
   currentUserId,
   title,
   gameHref,
+  score,
+  status,
 }: {
   m: BracketResponse["matches"][number];
   currentUserId: string;
   title: string;
   gameHref: string | null;
+  score: string;
+  status?: string;
 }) {
   const youAreP1 = m.p1.userId === currentUserId;
   const opp = youAreP1 ? m.p2 : m.p1;
   const you = youAreP1 ? m.p1 : m.p2;
+  const isCompleted = status === "Completed" || status === "Terminated";
 
   return (
     <div className="mt-3 border rounded p-3 flex items-center justify-between">
@@ -319,13 +334,19 @@ function NextMatchCard({
         <div className="text-xs text-gray-500">{title}</div>
         <div className="font-medium">
           <span className="text-emerald-700">You</span>{" "}
-          <span className="text-gray-400">vs</span> {opp.nickname || "—"}
+          <span className="text-gray-400">vs</span> {opp.nickname || "—"}{" "}
+          <span className="ml-1 text-xs text-gray-500">({score})</span>
         </div>
         <div className="text-xs text-gray-500 mt-1">
           ({you.nickname ?? you.userId})
         </div>
       </div>
-      {gameHref ? (
+
+      {isCompleted ? (
+        <span className="text-xs text-emerald-600 font-medium">
+          {status === "Terminated" ? "Game terminated" : "Game completed"}
+        </span>
+      ) : gameHref ? (
         <Link
           to={gameHref}
           className="px-2 py-1 text-xs bg-indigo-50 rounded border border-indigo-100 hover:bg-indigo-100"

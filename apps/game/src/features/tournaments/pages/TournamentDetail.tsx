@@ -20,7 +20,6 @@ export function TournamentDetail() {
   const userId = useAuthStore((s) => s.userId);
   const userProfile = useAuthStore((s) => s.userProfile);
 
-  // Helper: translate tournament status
   const getStatusTranslation = (status: string) => {
     switch ((status || "").toLowerCase()) {
       case "pending":
@@ -32,7 +31,7 @@ export function TournamentDetail() {
       case "cancelled":
         return t.tournamentsPage.status.cancelled;
       default:
-        return status; // fallback
+        return status;
     }
   };
 
@@ -43,7 +42,6 @@ export function TournamentDetail() {
   const [nick, setNick] = useState("");
   const [banner, setBanner] = useState<Banner>(null);
 
-  // Derived
   const needsUsername = useMemo(() => !userProfile?.username, [userProfile]);
   const hasDisplayName = useMemo(
     () =>
@@ -52,25 +50,11 @@ export function TournamentDetail() {
   );
   const pending = detail?.status === "pending";
 
-  // Detect owner/creator from common field names
-  const isOwner = useMemo(() => {
-    if (!detail || !userId) return false;
-    const ownerId =
-      (detail as any).ownerId ??
-      (detail as any).createdBy ??
-      (detail as any).organizerId ??
-      (detail as any).creatorId ??
-      null;
-    return !!ownerId && ownerId === userId;
-  }, [detail, userId]);
-
-  // Is current user already a participant?
   const isParticipant = useMemo(() => {
     if (!detail || !userId) return false;
     return detail.participants?.some((p: any) => p.userId === userId) ?? false;
   }, [detail, userId]);
 
-  // Buttons left clickable so your custom messages appear on click
   const canJoinVisible = !!token && pending;
   const canLeaveVisible = !!token && pending;
   const canStartVisible = !!token && pending;
@@ -86,6 +70,8 @@ export function TournamentDetail() {
       setBracket(
         (b as any)?.ok ? (b as BracketResponse) : (b as BracketResponse)
       );
+    } catch {
+      setBanner({ kind: "error", text: "Something went wrong =(" });
     } finally {
       setLoading(false);
     }
@@ -101,13 +87,11 @@ export function TournamentDetail() {
   const join = async () => {
     if (!id || !token || !canJoinVisible) return;
 
-    // Already joined
     if (isParticipant) {
       show("info", "You can’t join twice.");
       return;
     }
 
-    // Username required before joining (client-side guard)
     if (needsUsername) {
       show(
         "error",
@@ -124,23 +108,8 @@ export function TournamentDetail() {
       await TournamentsApi.join(id, token, nicknameToSend || undefined);
       show("success", "Joined the tournament.");
       await load();
-    } catch (e: any) {
-      // Server validation mapping
-      if (e?.status === 400) {
-        show("error", "Please enter a nickname to join.");
-      } else if (e?.status === 409) {
-        // Could be "already joined" or other prereq
-        if (needsUsername) {
-          show(
-            "error",
-            "You need to set a username in your profile before joining."
-          );
-        } else {
-          show("info", "You can’t join twice.");
-        }
-      } else {
-        show("error", e?.message || "Failed to join.");
-      }
+    } catch {
+      show("error", "Something went wrong =(");
     } finally {
       setBusy(false);
     }
@@ -149,13 +118,6 @@ export function TournamentDetail() {
   const leave = async () => {
     if (!id || !token || !canLeaveVisible) return;
 
-    // NEW: creators can't leave their own tournament
-    if (isOwner) {
-      show("info", "You created this tournament — you can’t leave.");
-      return;
-    }
-
-    // Not a participant
     if (!isParticipant) {
       show("info", "You haven’t joined — you can’t leave.");
       return;
@@ -167,18 +129,8 @@ export function TournamentDetail() {
       await TournamentsApi.leave(id, token);
       show("success", "Left the tournament.");
       await load();
-    } catch (e: any) {
-      if (e?.status === 409) {
-        // e.g., bracket locked or additional server rules
-        show(
-          "error",
-          isOwner
-            ? "Creators can’t leave their own tournament."
-            : "You can’t leave right now."
-        );
-      } else {
-        show("error", e?.message || "Failed to leave.");
-      }
+    } catch {
+      show("error", "Something went wrong =(");
     } finally {
       setBusy(false);
     }
@@ -187,20 +139,14 @@ export function TournamentDetail() {
   const start = async () => {
     if (!id || !token || !canStartVisible) return;
 
-    // Not an owner
-    if (!isOwner) {
-      show("info", "Only the tournament creator can start.");
-      return;
-    }
-
     setBusy(true);
     setBanner(null);
     try {
       await TournamentsApi.start(id, token);
       show("success", "Tournament started.");
       await load();
-    } catch (e: any) {
-      show("error", e?.message || "Failed to start.");
+    } catch {
+      show("error", "Something went wrong =(");
     } finally {
       setBusy(false);
     }
@@ -221,8 +167,8 @@ export function TournamentDetail() {
         winnerUserId,
       });
       await load();
-    } catch (e: any) {
-      show("error", e?.message || "Failed to report result.");
+    } catch {
+      show("error", "Something went wrong =(");
     } finally {
       setBusy(false);
     }
@@ -260,17 +206,12 @@ export function TournamentDetail() {
             {t.game.tournaments.rounds} {detail.rounds}
           </div>
           {BannerEl}
-          {detail.status === "pending" && !isOwner && (
-            <div className="mt-2 text-xs text-gray-600">
-              Only the tournament creator can start.
-            </div>
-          )}
           {detail.status === "pending" && needsUsername && (
             <div className="mt-1 text-xs text-gray-600">
               You need a username before joining.
             </div>
           )}
-          {detail.status === "pending" && isOwner && (
+          {detail.status === "pending" && (
             <div className="mt-1 text-xs text-gray-600">
               Creators can’t leave their own tournament.
             </div>
@@ -287,7 +228,6 @@ export function TournamentDetail() {
 
           {detail.status === "pending" ? (
             <>
-              {/* Optional nickname field (backend may still require username separately) */}
               <input
                 className="border px-3 py-1 rounded"
                 value={nick}
@@ -299,7 +239,6 @@ export function TournamentDetail() {
                 }
               />
 
-              {/* Join: enabled so your custom messages appear on click */}
               <button
                 onClick={join}
                 disabled={busy || !token}
@@ -319,36 +258,26 @@ export function TournamentDetail() {
                 {t.game.tournaments.join}
               </button>
 
-              {/* Leave: enabled so your custom messages appear on click */}
               <button
                 onClick={leave}
                 disabled={busy || !token}
                 className={[
                   "px-3 py-1 rounded text-white disabled:opacity-60",
                   "bg-yellow-500",
-                  !isParticipant || isOwner ? "opacity-90" : "",
+                  !isParticipant ? "opacity-90" : "",
                 ].join(" ")}
-                title={
-                  isOwner
-                    ? "Creators can’t leave their own tournament"
-                    : !isParticipant
-                      ? "You haven’t joined — you can’t leave"
-                      : ""
-                }
               >
                 {t.game.tournaments.leave}
               </button>
 
-              {/* Start: enabled so your custom message appears on click */}
               <button
                 onClick={start}
                 disabled={busy || !token}
                 className={[
                   "px-3 py-1 rounded text-white disabled:opacity-60",
                   "bg-indigo-600",
-                  !isOwner ? "opacity-90" : "",
+                  "opacity-90",
                 ].join(" ")}
-                title={!isOwner ? "Only the tournament creator can start" : ""}
               >
                 {t.game.tournaments.start}
               </button>
@@ -391,12 +320,11 @@ export function TournamentDetail() {
             onReport={report}
             currentUserId={userId}
             disabled={busy || detail.status !== "ongoing"}
-            showRematch={false} // hide any "Play again / Rematch" controls
+            showRematch={false}
           />
         )}
       </section>
 
-      {/* Dashboard only when bracket data is available */}
       {bracket && (
         <TournamentDashboard
           detail={detail}
