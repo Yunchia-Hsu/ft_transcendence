@@ -80,6 +80,9 @@ export type GameStrings = {
     savingResult: string;
     startNewGame: string;
   };
+  dashboard: {
+    recentGames: string;
+  };
   quickPlay: {
     title: string;
     description: string;

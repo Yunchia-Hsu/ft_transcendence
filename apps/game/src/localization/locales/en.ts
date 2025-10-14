@@ -76,6 +76,9 @@ export const en: Translations = {
       savingResult: "Saving result…",
       startNewGame: "Start a new game",
     },
+    dashboard: {
+      recentGames: "Recent Games",
+    },
     quickPlay: {
       title: "Quick Play",
       description:
