@@ -80,7 +80,6 @@ export default function PlayPrompt() {
         ? "text-amber-600"
         : "text-rose-600";
 
-  // Ring stroke color for the circle progress
   const ringStroke =
     winRateNum >= 60 ? "#10b981" : winRateNum >= 40 ? "#f59e0b" : "#ef4444";
 
@@ -99,6 +98,7 @@ export default function PlayPrompt() {
       setLoading(null);
     }
   };
+
   const startAI = async () => {
     if (!userId) return;
     setErr(null);
@@ -113,6 +113,7 @@ export default function PlayPrompt() {
       setLoading(null);
     }
   };
+
   const startFriend = () => {
     if (!userId) return;
     setErr(null);
@@ -120,6 +121,7 @@ export default function PlayPrompt() {
     navigate("/friends");
     setLoading(null);
   };
+
   const toTournaments = () => navigate("/tournaments");
 
   return (
@@ -201,7 +203,6 @@ export default function PlayPrompt() {
           {/* 📊 Dashboard */}
           {games.length > 0 && (
             <div className="mt-8">
-              {/* Clickable header */}
               <div
                 onClick={() => setShowDashboard((p) => !p)}
                 className="cursor-pointer flex items-center justify-center gap-2 text-sm font-semibold text-sky-700 hover:text-sky-900 bg-sky-50/70 hover:bg-sky-100 border border-sky-200 rounded-xl py-2 px-4 transition"
@@ -218,7 +219,6 @@ export default function PlayPrompt() {
                 </span>
               </div>
 
-              {/* Collapsible content */}
               <div
                 className={`transition-all overflow-hidden ${
                   showDashboard
@@ -282,41 +282,44 @@ export default function PlayPrompt() {
                     {t?.game?.dashboard?.recentGames || "Recent Games"}
                   </h2>
                   <ul className="divide-y divide-gray-100">
-                    {games.slice(0, 5).map((g) => {
-                      const isWinner = g.winner_id === userId;
-                      return (
-                        <li
-                          key={g.game_id}
-                          className="py-2 flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded-md px-2 transition"
-                          onClick={() => navigate(`/game/${g.game_id}`)}
-                        >
-                          <div className="text-sm text-gray-700">
-                            <span className="font-medium">
-                              {g.score || "—"}
-                            </span>{" "}
-                            <span className="text-gray-400">•</span>{" "}
-                            <span>{g.status}</span>
-                          </div>
-                          <div
-                            className={`text-xs font-semibold ${
-                              isWinner
-                                ? "text-emerald-600"
-                                : g.status === "In Progress"
-                                  ? "text-sky-600"
-                                  : "text-rose-600"
-                            }`}
+                    {[...games]
+                      .reverse()
+                      .slice(0, 9)
+                      .map((g) => {
+                        const isWinner = g.winner_id === userId;
+                        return (
+                          <li
+                            key={g.game_id}
+                            className="py-2 flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded-md px-2 transition"
+                            onClick={() => navigate(`/game/${g.game_id}`)}
                           >
-                            {g.status === "Completed"
-                              ? isWinner
-                                ? "🏆 You won!"
-                                : "💀 You lost"
-                              : g.status === "In Progress"
-                                ? "🎯 In Progress"
-                                : "⛔ " + g.status}
-                          </div>
-                        </li>
-                      );
-                    })}
+                            <div className="text-sm text-gray-700">
+                              <span className="font-medium">
+                                {g.score || "—"}
+                              </span>{" "}
+                              <span className="text-gray-400">•</span>{" "}
+                              <span>{g.status}</span>{" "}
+                            </div>
+                            <div
+                              className={`text-xs font-semibold ${
+                                isWinner
+                                  ? "text-emerald-600"
+                                  : g.status === "In Progress"
+                                    ? "text-sky-600"
+                                    : "text-rose-600"
+                              }`}
+                            >
+                              {g.status === "Completed"
+                                ? isWinner
+                                  ? "🏆 You won!"
+                                  : "💀 You lost"
+                                : g.status === "In Progress"
+                                  ? "🎯 In Progress"
+                                  : "⛔ " + g.status}
+                            </div>
+                          </li>
+                        );
+                      })}
                   </ul>
                 </div>
               </div>
