@@ -83,7 +83,7 @@ clean:
 	@echo "🧹 Project fully cleaned."
 
 # === All services (including monitoring) ===
-ups-all: build
+up-all: build
 	$(COMPOSE) up -d $(ALL_SERVICES)
 	@echo "🚀 Open: https://localhost:$${NGINX_PORT_HTTPS:-8443}"
 
