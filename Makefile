@@ -5,7 +5,7 @@ SERVICES := api game nginx
 ALL_SERVICES := api game nginx prometheus grafana node-exporter
 
 # === Default ===
-all: up
+all: up-all
 
 # === Setup: .env + TLS certs ===
 setup: env certs
@@ -52,7 +52,7 @@ build-images:
 # === Up / Down ===
 up: build
 	$(COMPOSE) up -d $(SERVICES)
-	@echo "🚀 App is running at https://localhost"
+	@echo "🚀 Open: https://localhost:$${NGINX_PORT_HTTPS:-8443}"
 
 down:
 	$(COMPOSE) down
@@ -82,10 +82,10 @@ clean:
 	docker system prune -af --volumes || true
 	@echo "🧹 Project fully cleaned."
 
-# === Optional: monitoring stack ===
-up-all: build
+# === All services (including monitoring) ===
+ups-all: build
 	$(COMPOSE) up -d $(ALL_SERVICES)
-	@echo "📊 Stack is up at https://localhost (nginx reverse-proxy)"
+	@echo "🚀 Open: https://localhost:$${NGINX_PORT_HTTPS:-8443}"
 
 logs-all:
 	$(COMPOSE) logs -f --tail=200 $(ALL_SERVICES)
