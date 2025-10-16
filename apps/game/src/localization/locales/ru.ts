@@ -78,7 +78,7 @@ export const ru: Translations = {
     },
     quickPlay: {
       title: 'Быстрая игра',
-      description: 'Мы подберем вам следующего доступного игрока и сразу начнем игру.',
+      description: 'Мы подберем вам следующего доступного игрока и сразу начнем игру щас.',
       findOpponent: 'Найти соперника',
       joining: 'Подключение…',
       searching: 'Поиск…',
