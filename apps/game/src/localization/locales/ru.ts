@@ -69,6 +69,7 @@ export const ru: Translations = {
     mainMenu: {
       title: 'Никого не волнует, выиграешь ли ты.',
       playWithYourself: '🧍‍♂️ Играй сам с собой',
+      playWithFriend: '🧑‍🤝‍🧑 Играй с другом',
       playWithAI: '🎮 Играй против ИИ',
       tournaments: '🏆 Турниры',
       starting: 'Запуск…',
@@ -109,6 +110,9 @@ export const ru: Translations = {
       nobodyOnline: 'Никого нет онлайн… пока 👀',
       online: '● онлайн',
     },
+    dashboard: {
+      recentGames: 'Недавние игры',
+    },
   },
   friendsPage: {
     title: 'Друзья',
@@ -118,7 +122,7 @@ export const ru: Translations = {
       friends: 'Друзья',
       requests: 'Запросы',
       sent: 'Отправленные',
-      addFriends: 'Добавить друзей',
+      search: 'Добавить друзей',
     },
   },
   tournamentsPage: {

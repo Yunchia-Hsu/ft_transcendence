@@ -69,6 +69,7 @@ export const zh: Translations = {
     mainMenu: {
       title: '沒人在乎你是否獲勝。',
       playWithYourself: '🧍‍♂️ 自己和自己玩',
+      playWithFriend: '🧑‍🤝‍🧑 與朋友對戰',
       playWithAI: '🎮 與AI對戰',
       tournaments: '🏆 錦標賽',
       starting: '啟動中…',
@@ -118,7 +119,7 @@ export const zh: Translations = {
       friends: '朋友',
       requests: '請求',
       sent: '已發送',
-      addFriends: '添加朋友',
+      search: '添加朋友',
     },
   },
   tournamentsPage: {
