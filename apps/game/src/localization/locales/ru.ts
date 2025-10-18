@@ -122,7 +122,7 @@ export const ru: Translations = {
       friends: 'Друзья',
       requests: 'Запросы',
       sent: 'Отправленные',
-      search: 'Добавить друзей',
+      addFriends: 'Добавить друзей',
     },
   },
   tournamentsPage: {
@@ -136,6 +136,7 @@ export const ru: Translations = {
     noTournaments: 'Турниров пока нет.',
     placeholder: 'Кубок выходного дня',
     open: 'Открыть',
+    none: 'Нет',
     status: {
       pending: 'Ожидание',
       ongoing: 'В процессе',
@@ -153,11 +154,18 @@ export const ru: Translations = {
       resultRecorded: 'Результат записан',
       waitingForPlayers: 'Ожидание игроков',
       winner: 'Победитель',
+      noScore: ' Пока нет счета.',
     },
     participants: {
       title: 'Участники',
       nobodyYet: 'Пока никого.',
     },
+    statusTitle: '',
+    nextMatch: '',
+    noUpcomingMatch: '',
+    completed: '',
+    pending: '',
+    completedMatches: ''
   },
   profile: {
     title: 'Настройки профиля',

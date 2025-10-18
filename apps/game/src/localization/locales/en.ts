@@ -154,11 +154,19 @@ export const en: Translations = {
       resultRecorded: "Result recorded",
       waitingForPlayers: "Waiting for players",
       winner: "Winner",
+      noScore: " No score yet.",
     },
     participants: {
       title: "Participants",
       nobodyYet: "Nobody yet.",
     },
+    none: "",
+    statusTitle: "",
+    nextMatch: "",
+    noUpcomingMatch: "",
+    completed: "",
+    pending: "",
+    completedMatches: ""
   },
   profile: {
     title: "Profile Settings",

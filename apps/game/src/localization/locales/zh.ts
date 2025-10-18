@@ -110,6 +110,9 @@ export const zh: Translations = {
       nobodyOnline: '還沒有人在線… 👀',
       online: '● 在線',
     },
+    dashboard: {
+      recentGames: ''
+    }
   },
   friendsPage: {
     title: '朋友',
@@ -119,7 +122,7 @@ export const zh: Translations = {
       friends: '朋友',
       requests: '請求',
       sent: '已發送',
-      search: '添加朋友',
+      addFriends: '添加朋友',
     },
   },
   tournamentsPage: {
@@ -150,11 +153,19 @@ export const zh: Translations = {
       resultRecorded: '結果已記錄',
       waitingForPlayers: '等待玩家',
       winner: '獲勝者',
+      noScore: ' 尚無分數。',
     },
     participants: {
       title: '參與者',
       nobodyYet: '還沒有人。',
     },
+    none: '',
+    statusTitle: '',
+    nextMatch: '',
+    noUpcomingMatch: '',
+    completed: '',
+    pending: '',
+    completedMatches: ''
   },
   profile: {
     title: '個人資料設置',
