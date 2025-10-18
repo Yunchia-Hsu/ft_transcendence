@@ -1,0 +1,42 @@
+groups:
+  - name: demo.rules
+    rules:
+      # всегда горит — удобно показать сразу
+      - alert: DemoAlwaysFiring
+        expr: vector(1)
+        for: 10s
+        labels:
+          severity: info
+        annotations:
+          summary: "Demo alert (always firing)"
+          description: "Fires unconditionally for demo purposes."
+
+      # цель недоступна
+      - alert: TargetDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Target down"
+          description: "Job {{ $labels.job }} on {{ $labels.instance }} is down."
+
+      # экспортер отсутствует
+      - alert: NodeExporterAbsent
+        expr: absent(up{job="node_exporter"})
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "node_exporter absent"
+          description: "No node_exporter targets found."
+
+      # высокий user-CPU
+      - alert: HighCPUUsage
+        expr: avg(rate(node_cpu_seconds_total{mode="user"}[2m])) by (instance) > 0.7
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "Instance {{ $labels.instance }} user CPU > 70% (2m avg)."

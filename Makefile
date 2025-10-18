@@ -2,7 +2,7 @@
 
 COMPOSE := docker compose
 SERVICES := api game nginx
-ALL_SERVICES := api game nginx prometheus grafana node-exporter
+ALL_SERVICES := api game nginx prometheus grafana node-exporter alertmanager
 
 # === Default ===
 all: up-all

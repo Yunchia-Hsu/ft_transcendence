@@ -1,0 +1,30 @@
+{
+  "title": "Basic System Overview",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "type": "table",
+      "title": "Targets UP",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "up{job=~\"node_exporter|prometheus\"}", "legendFormat": "{{job}} {{instance}}"}
+      ],
+      "options": {"showHeader": true}
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Usage %",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)"}
+      ],
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      }
+    }
+  ],
+  "time": {"from": "now-15m", "to": "now"}
+}
