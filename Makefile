@@ -11,6 +11,19 @@ all: up-all
 setup: env certs
 	@echo "✅ Setup complete. Next: make up"
 
+# Copy .env if missing
+env-root:
+	@if [ ! -f .env ]; then \
+		if [ -f .env_root.example ]; then \
+			echo "📁 Creating .env from .env_root.example..."; \
+			cp apps/api/.env_root.example .env; \
+		else \
+			echo ".env_root.example not found; skipping root .env"; \
+		fi; \
+	else \
+		echo "✅ .env already exists."; \
+	fi
+
 # Copy apps/api/.env if missing
 env:
 	@if [ ! -f apps/api/.env ]; then \
