@@ -8,13 +8,13 @@ ALL_SERVICES := api game nginx prometheus grafana node-exporter alertmanager
 all: up-all
 
 # === Setup: .env + TLS certs ===
-setup: env certs
+setup: env env-root certs
 	@echo "✅ Setup complete. Next: make up"
 
 # Copy .env if missing
 env-root:
 	@if [ ! -f .env ]; then \
-		if [ -f .env_root.example ]; then \
+		if [ -f apps/api/.env_root.example ]; then \
 			echo "📁 Creating .env from .env_root.example..."; \
 			cp apps/api/.env_root.example .env; \
 		else \
