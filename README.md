@@ -1,293 +1,481 @@
-# Fullstack Pong Game with AI opponent
-## 🛠️ Tech Stack
+# Pong Game - ft_transcendence
 
-### Frontend
-- **React 19** - Latest React features with modern patterns
-- **TypeScript** - Full type safety across the application
-- **Tailwind CSS** - Utility-first styling for UI components
-- **Custom CSS** - Game-specific styles for canvas and pixel-perfect rendering
+A full-featured online Pong game platform with real-time multiplayer, tournaments, friends system, and two-factor authentication.
 
-### Backend
-- **Hono.js** - Fast, lightweight web framework optimized for edge deployment
-- **TypeScript** - End-to-end type safety
-- **Zod** - Runtime schema validation
+## Demo
 
-### Database
-- **SQLite** - Lightweight, embedded database for simplicity and performance
+Watch the demo video: [https://youtu.be/DNij0lZR4IU](https://youtu.be/DNij0lZR4IU)
 
-### Architecture
-- **Monorepo Structure** - Clean code organization with shared packages
-- **Docker** - Containerized deployment for consistency across environments
+## Table of Contents
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Environment Setup](#environment-setup)
+- [Development Guide](#development-guide)
+- [API Documentation](#api-documentation)
+- [Docker & Data](#docker--data)
+- [Deployment](#deployment)
+- [Troubleshooting](#troubleshooting)
 
-## 🎨 Styling Strategy
+## Features
 
-This project uses a hybrid styling approach:
+### Game System
+- Real-time Pong game with Canvas rendering
+- AI opponent mode
+- 1v1 quick matchmaking
+
+### Competitive System
+- Single-elimination tournaments
+- Automatic bracket generation
+- Real-time matchmaking queue
+
+### Social System
+- Friend requests (send/accept/reject)
+- Online status tracking
+- Player search
+
+### Security
+- JWT authentication
+- Two-factor authentication (2FA) with Google Authenticator
+- Google OAuth integration
+- bcrypt password hashing
+
+### Additional
+- Multi-language support (English, Russian, Chinese)
+- Match history and dashboard
+- User customization (avatar, display name)
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19, Vite 7, Zustand, Tailwind CSS |
+| Backend | Hono.js, TypeScript, Zod |
+| Database | SQLite + Kysely ORM |
+| DevOps | Docker, Nginx, Prometheus, Grafana |
+| Monorepo | Turborepo + pnpm |
+
+### Styling Strategy
 
 **Tailwind CSS** handles:
 - UI components (buttons, forms, layouts)
 - Responsive design utilities
 - Typography and spacing systems
-- Color schemes and theming
 
 **Custom CSS** manages:
 - Game canvas and viewport rendering
-- Complex game-specific layouts
 - Performance-critical animations
 - Pixel-perfect game elements
-## ✨ Features
-- Real-time Gaming
-- 2FA Authentication with JWT tokens
-- Google Auth
-- AI Opponent
-- Match history and dashboard
-- Friend requests sending in real time
-- User customizaton
-- Option to run with Docker
-- Multiple language support
-- Different play modes (tournament)
 
+## Quick Start
 
-## Overview
+### Prerequisites
+- **Node.js** >= 18
+- **pnpm** >= 9
+- **Docker** & **Docker Compose** (for containerized development)
 
-Monorepo powered by **Turborepo**, **TypeScript**, and **Hono**.
-The API is documented with Swagger UI and (by default in dev) runs in **Docker**; the frontend runs locally with hot reload.
-
-- API base URL (Docker mode): `http://localhost:4001`
-- Swagger UI: `http://localhost:4001/ui`
-- OpenAPI JSON: `http://localhost:4001/doc`
-
-## Requirements
-
-- **Node.js** ≥ 18
-- **pnpm** 9.x
-- **Docker** & **Docker Compose**
-
-## Install
+### Installation
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd ponggame
+
+# Install dependencies
 pnpm install
 ```
 
----
-
-## Dev workflow
-Added a hiden file name .env in path apps/api, and the content is JWT_SECRET='secret'
-By default, `pnpm run dev` starts Docker (API + DB) and then runs everything **except** the API/infra locally (e.g., the frontend).
-Your root scripts:
-
-# 📜 Scripts Cheat Sheet
-
-### **Switch modes**
-
-- **`pnpm run dev`** 🚀
-  Run **all packages** in dev mode using Turbo (`turbo run dev`).
-  → Starts API, game frontend, infra, etc.
-
-- **`pnpm run dev:local`** 💻
-  `docker compose down && turbo run dev`
-  → First stop Docker containers (so they don’t clash with ports), then run everything locally with Turbo.
-
-- **`pnpm run dev:api`** 🔧
-  `pnpm --filter api run dev`
-  → Only start the **API service** locally (ignores everything else).
-
-- **`pnpm run dev:game`** 🎮
-  `pnpm --filter game run dev`
-  → Only start the **game frontend** locally. Use this when API is running separately (e.g., in Docker).
-
----
-
-### **Docker control**
-
-- **`pnpm run up`** 🐳⬆️
-  `docker compose up -d`
-  → Start Docker containers in detached mode (API, DB, etc).
-
-- **`pnpm run down`** 🐳⬇️
-  `docker compose down`
-  → Stop all containers (keeps volumes/data unless `-v` used).
-
-- **`pnpm run restart`** 🔄
-  `docker compose restart api`
-  → Restart **only the API container** (useful after code/image updates).
-
-- **`pnpm run logs`** 📜
-  `docker compose logs -f api`
-  → Stream **live logs** from the API container.
-
-- **`pnpm run rebuild`** 🛠️
-  `docker compose down -v --rmi local --remove-orphans && docker compose build --no-cache && docker compose up -d`
-  → Full reset:
-  1. Stop & remove containers/volumes/images/orphans.
-  2. Build fresh images (no cache).
-  3. Start everything again.
-
----
-
-### **Build & quality**
-
-- **`pnpm run build`** 🏗️
-  `turbo run build`
-  → Compile/build all workspaces (API, game, infra, shared packages).
-
-- **`pnpm run lint`** 🧹
-  `turbo run lint`
-  → Run lint checks across all packages.
-
-- **`pnpm run format`** ✨
-  `prettier --write "**/*.{ts,tsx,md}"`
-  → Auto-format TypeScript + Markdown files.
-
-- **`pnpm run check-types`** 🔍
-  `turbo run check-types`
-  → Run TypeScript type-checking across all packages (no emit).
-
-### Command cheatsheet
-
-| Command              | What it does                                                                                                    | API runs where?                                                    | DB lives where?                                 | Use when…                                                                                         |
-| -------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `pnpm run dev`       | Runs all **dev tasks via Turborepo**. By default, API + DB come from Docker; frontend/game runs locally (Vite). | **Docker** → `http://localhost:4001`                               | Docker volume `ft_transcendence_games-data`     | Day-to-day dev: backend stable in Docker, frontend hot reload local.                              |
-| `pnpm run dev:local` | Stops Docker, then runs **everything locally** (API, DB, game) via Turbo.                                       | **Local** → `http://localhost:4001`                                | File at `packages/infra/db/games.sqlite`        | You’re hacking on API/DB internals and don’t want Docker overhead.                                |
-| `pnpm run dev:api`   | Starts **only the API locally** (with local SQLite).                                                            | **Local** → `http://localhost:4001` and `http://localhost:4001/ui` | File at `packages/infra/db/games.sqlite`        | Quick API-only work. (⚠️ Stop Docker API first to avoid port clash). /ui is for swagger andpoints |
-| `pnpm run dev:game`  | Starts **only the frontend** (Vite).                                                                            | Whatever `VITE_API_BASE_URL` points to                             | n/a                                             | You only need the UI while API is already running (Docker or local).                              |
-| `pnpm run up`        | `docker compose up -d` → start API + DB containers.                                                             | **Docker** → `http://localhost:4001`                               | Docker volume `ft_transcendence_games-data`     | Manually start containers; usually safe and idempotent.                                           |
-| `pnpm run down`      | `docker compose down` → stop containers.                                                                        | —                                                                  | Volume persists (data is safe)                  | Shut down Docker but keep your DB data intact.                                                    |
-| `pnpm run restart`   | `docker compose restart api` → restart only the API container.                                                  | **Docker** → `http://localhost:4001`                               | Docker volume `ft_transcendence_games-data`     | Fast way to reload API after config/code changes in the container.                                |
-| `pnpm run logs`      | `docker compose logs -f api` → follow API logs from Docker.                                                     | Docker                                                             | Docker volume `ft_transcendence_games-data`     | Inspect API runtime logs inside container.                                                        |
-| `pnpm run rebuild`   | Full reset: stop & remove containers/volumes/images, rebuild images w/o cache, then `up -d`.                    | **Docker** → `http://localhost:4001` (fresh)                       | New Docker volume `ft_transcendence_games-data` | After Dockerfile or dependency changes; guarantees clean rebuild.                                 |
-
-> FUTURE->Frontend → API URL (Vite example): create `apps/game/.env.local` with
-> `VITE_API_BASE_URL=http://localhost:4001`
-
----
-
-## Docker & Data
-
-- The API runs in Docker and uses a **named volume**: `ft_transcendence_games-data`.
-- The SQLite DB file (`games.sqlite`) is **inside that volume**, mounted at `/app/packages/infra/db` in the container.
-- The repo’s `packages/infra/db/` folder can be empty; Docker overlays it at runtime.
-- Reset DB (⚠️ deletes data): `docker compose down -v`
-- Backup DB to host:
-
-  ```bash
-  docker run --rm -v ft_transcendence_games-data:/data -v "$PWD":/backup alpine \
-    sh -c 'cp /data/games.sqlite /backup/games.sqlite.backup'
-  ```
-
-> Volumes are **per-machine**. Teammates won’t get your data automatically; share a snapshot if needed.
-
----
-
-## Testing the API
-
-### Curl quick checks
-
-Start the stack (Docker mode):
+### Running the Project
 
 ```bash
+# Local development (no Docker)
+pnpm run dev:local
+
+# Docker development mode
 pnpm run dev
 ```
 
-List games:
+### Access Services
+
+| Service | URL |
+|---------|-----|
+| Game Frontend | http://localhost:5173 |
+| API Server | http://localhost:4001 |
+| Swagger UI | http://localhost:4001/ui |
+| OpenAPI JSON | http://localhost:4001/doc |
+| Grafana | http://localhost:3000 |
+| Prometheus | http://localhost:9090 |
+
+## Environment Setup
+
+**IMPORTANT:** The project requires `.env` files to run properly. Without these files, you will encounter errors.
+
+### 1. API Environment Variables (Required)
+
+Copy the example file and configure:
 
 ```bash
-curl http://localhost:4001/api/games
+cp apps/api/.env.example apps/api/.env
 ```
 
-Start a game:
+Edit `apps/api/.env`:
+
+```env
+# Required - MUST be set
+JWT_SECRET=your-secure-secret-key-min-32-chars
+PORT=4001
+DB_DIR=/app/data
+
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=https://localhost/auth/google/callback
+
+# Grafana (optional)
+GF_ADMIN_USER=admin
+GF_ADMIN_PASSWORD=admin
+```
+
+### 2. Frontend Environment Variables (Required)
+
+Create the frontend environment file:
 
 ```bash
+echo "VITE_API_BASE_URL=http://localhost:4001" > apps/game/.env
+```
+
+Or manually create `apps/game/.env`:
+
+```env
+VITE_API_BASE_URL=http://localhost:4001
+```
+
+### Important Notes
+
+- **Never commit `.env` files to Git** - they contain sensitive information
+- Use a strong secret key in production (at least 32 characters)
+- `.env.example` files are for reference only
+- Without `JWT_SECRET`, the API will fail with: `Missing/weak JWT_SECRET`
+- Without `VITE_API_BASE_URL`, the frontend cannot connect to the API
+
+## Development Guide
+
+### Project Structure
+
+```
+ponggame/
+├── apps/
+│   ├── api/              # Hono.js backend API
+│   └── game/             # React frontend (Vite)
+├── packages/
+│   ├── infra/            # Database layer (Kysely + SQLite)
+│   ├── types/            # Shared TypeScript types
+│   └── eslint-config/    # Shared ESLint configuration
+├── nginx/                # Nginx reverse proxy config
+├── prometheus/           # Prometheus monitoring config
+├── grafana/              # Grafana dashboards
+├── alertmanager/         # AlertManager config
+└── docker-compose.yml    # Docker orchestration
+```
+
+### Scripts Cheat Sheet
+
+#### Switch Modes
+
+| Command | Description |
+|---------|-------------|
+| `pnpm run dev` | Run all packages in dev mode via Turborepo |
+| `pnpm run dev:local` | Stop Docker, run everything locally |
+| `pnpm run dev:api` | Start only the API locally |
+| `pnpm run dev:game` | Start only the frontend (Vite) |
+
+#### Docker Control
+
+| Command | Description |
+|---------|-------------|
+| `pnpm run up` | Start Docker containers in detached mode |
+| `pnpm run down` | Stop containers (keeps volumes/data) |
+| `pnpm run restart` | Restart only the API container |
+| `pnpm run logs` | Stream live logs from API container |
+| `pnpm run rebuild` | Full reset: stop, remove, rebuild, start |
+
+#### Build & Quality
+
+| Command | Description |
+|---------|-------------|
+| `pnpm run build` | Compile/build all workspaces |
+| `pnpm run lint` | Run lint checks across all packages |
+| `pnpm run format` | Auto-format TypeScript + Markdown files |
+| `pnpm run check-types` | Run TypeScript type-checking |
+
+### Command Reference Table
+
+| Command | API Location | DB Location | Use When |
+|---------|--------------|-------------|----------|
+| `pnpm run dev` | Docker: `localhost:4001` | Docker volume | Day-to-day dev |
+| `pnpm run dev:local` | Local: `localhost:4001` | `packages/infra/db/games.sqlite` | Hacking on API/DB |
+| `pnpm run dev:api` | Local: `localhost:4001` | Local SQLite file | Quick API-only work |
+| `pnpm run dev:game` | Via `VITE_API_BASE_URL` | N/A | UI only, API running elsewhere |
+
+## API Documentation
+
+### Authentication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/users/register` | Register new user |
+| POST | `/api/auth/users/login` | Login with credentials |
+| GET | `/api/auth/me` | Get current user info |
+| GET | `/api/auth/users` | List all users (with search) |
+| GET | `/api/auth/users/:userId` | Get user profile |
+| PUT | `/api/auth/users/:userId` | Update profile |
+| DELETE | `/api/auth/users/:userId` | Delete account |
+
+### Two-Factor Authentication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/setup-2fa` | Generate QR code for 2FA setup |
+| POST | `/api/auth/activate-2fa` | Activate 2FA with code |
+| POST | `/api/auth/verify-2fa` | Verify 2FA during login |
+
+### Games
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/games/start` | Start a new game |
+| GET | `/api/games` | List games (filterable) |
+| GET | `/api/games/:gameId` | Get game status |
+| POST | `/api/games/:gameId/move` | Submit player move |
+| POST | `/api/games/:gameId/complete` | Mark game as complete |
+| POST | `/api/games/:gameId/terminate` | Terminate game early |
+
+### Matchmaking
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/matchmaking/queue` | Join quick play queue |
+| DELETE | `/api/matchmaking/queue` | Leave queue |
+| GET | `/api/matchmaking/status/:userId` | Check queue/match status |
+
+### Tournaments
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/tournaments` | List tournaments |
+| POST | `/api/tournaments` | Create tournament |
+| GET | `/api/tournaments/:id` | Get tournament details |
+| DELETE | `/api/tournaments/:id` | Delete tournament |
+| POST | `/api/tournaments/:id/participants` | Join tournament |
+| DELETE | `/api/tournaments/:id/participants` | Leave tournament |
+| POST | `/api/tournaments/:id/start` | Start tournament |
+| POST | `/api/tournaments/:id/matches` | Record match result |
+| GET | `/api/tournaments/:id/bracket` | Get bracket tree |
+
+### Friends
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/friends` | Get friends list |
+| POST | `/api/friends/request/:friendId/send` | Send friend request |
+| POST | `/api/friends/request/:friendId/accept` | Accept request |
+| POST | `/api/friends/request/:friendId/reject` | Reject request |
+| GET | `/api/friends/request/:friendId/retrieve` | Get pending requests |
+| DELETE | `/api/friends/request/:friendId/delete` | Delete pending request |
+| DELETE | `/api/friends/:friendId/delete` | Remove friend |
+
+### User Status
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/users/onlineusers` | List online users |
+| PUT | `/api/users/me/status` | Update online/offline status |
+
+For full interactive documentation, visit **Swagger UI**: http://localhost:4001/ui
+
+### Testing the API
+
+#### Curl Examples
+
+```bash
+# Start the stack
+pnpm run dev
+
+# List games
+curl http://localhost:4001/api/games
+
+# Register a user
+curl -X POST http://localhost:4001/api/auth/users/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","email":"alice@example.com","password":"securepass123"}'
+
+# Login
+curl -X POST http://localhost:4001/api/auth/users/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","password":"securepass123"}'
+
+# Start a game
 curl -X POST http://localhost:4001/api/games/start \
   -H "Content-Type: application/json" \
   -d '{"player1":"Alice","player2":"Bob"}'
-```
 
-Get status (replace `<id>` from the `start` response):
-
-```bash
-curl http://localhost:4001/api/games/<id>
-```
-
-Make a move:
-
-```bash
+# Make a move (replace <id> with game ID)
 curl -X POST http://localhost:4001/api/games/<id>/move \
   -H "Content-Type: application/json" \
   -d '{"playerId":"Alice","move":"UP"}'
 ```
 
-Filter list:
+#### Postman Setup
+
+1. Create an environment with `baseUrl` = `http://localhost:4001`
+2. Import OpenAPI doc from: `http://localhost:4001/doc`
+
+## Docker & Data
+
+### Data Storage
+
+- The API runs in Docker with a **named volume**: `ft_transcendence_games-data`
+- SQLite DB file (`games.sqlite`) is inside that volume at `/app/packages/infra/db`
+- Volumes persist across container restarts
+
+### Database Operations
 
 ```bash
-curl "http://localhost:4001/api/games?status=In%20Progress"
-curl "http://localhost:4001/api/games?player=Alice"
+# Reset DB (WARNING: deletes all data)
+docker compose down -v
+
+# Backup DB to host
+docker run --rm -v ft_transcendence_games-data:/data -v "$PWD":/backup alpine \
+  sh -c 'cp /data/games.sqlite /backup/games.sqlite.backup'
+
+# Export data for sharing
+docker run --rm -v ft_transcendence_games-data:/data -v "$PWD":/backup alpine \
+  sh -c 'cd /data && tar czf /backup/games-data.tgz .'
+
+# Import data (teammate)
+docker volume create ft_transcendence_games-data
+docker run --rm -v ft_transcendence_games-data:/data -v "$PWD":/backup alpine \
+  sh -c 'cd /data && tar xzf /backup/games-data.tgz'
 ```
 
-### Postman usage
+## Deployment
 
-1. **Create an environment** (name it `ft_transcendence`) with:
-
-- `baseUrl` = `http://localhost:4001`
-
-2. **Create requests**:
-
-- **Start game**
-  `POST {{baseUrl}}/api/games/start`
-  Body → raw JSON:
-
-  ```json
-  { "player1": "Alice", "player2": "Bob" }
-  ```
-
-- **List games**
-  `GET {{baseUrl}}/api/games`
-  Optional query params: `status`, `player`.
-
-- **Get game status**
-  `GET {{baseUrl}}/api/games/{{gameId}}`
-
-- **Make move**
-  `POST {{baseUrl}}/api/games/{{gameId}}/move`
-  Body → raw JSON:
-
-  ```json
-  { "playerId": "Alice", "move": "UP" }
-  ```
-
-3. **Docs in Postman**
-   You can also import the OpenAPI doc from: `{{baseUrl}}/doc` (Postman → Import → Link → paste the URL). That auto-generates a Postman collection.
-
----
-
-## Updating Docker after code changes
-
-- If you changed only frontend code (running locally), no Docker rebuild is needed.
-- If you changed the API code, dependencies, or Dockerfile, rebuild:
+### Using Docker Compose
 
 ```bash
-pnpm run rebuild     # docker compose build --no-cache && docker compose up -d
-pnpm run logs        # tail container logs
+# Build images
+make build
+
+# Start all services
+make up
+
+# Stop services
+make down
+
+# Full rebuild (clean + build + start)
+make rebuild
+
+# Remove all containers and volumes
+make clean
 ```
 
----
+### Production Environment
+
+Create secure `.env` files for production:
+
+```env
+# apps/api/.env
+JWT_SECRET=<generate-a-strong-64-char-secret>
+PORT=4001
+DB_DIR=/app/data
+NODE_ENV=production
+```
+
+### Services Overview
+
+| Service | Description | Port |
+|---------|-------------|------|
+| ft_api | Backend API | 4001 |
+| ft_game | Frontend SPA | 80 |
+| ft_nginx | Reverse proxy (HTTPS) | 443, 80 |
+| ft_prometheus | Metrics collection | 9090 |
+| ft_grafana | Monitoring dashboards | 3000 |
+| ft_alertmanager | Alert management | 9093 |
 
 ## Troubleshooting
 
-- **Port already in use (4001)**: You probably started a local API while Docker’s API is running.
-  Either stop Docker (`pnpm run down`) or use local-only mode (`pnpm run dev:local`), or change the local API port (e.g., `PORT=4101 pnpm run dev:api`).
+### Common Issues
 
-- **Teammates see empty DB**: Volumes are local. Share a snapshot or seed data:
-  - Export:
+**1. "Missing/weak JWT_SECRET" error**
 
-    ```bash
-    docker run --rm -v ft_transcendence_games-data:/data -v "$PWD":/backup alpine \
-      sh -c 'cd /data && tar czf /backup/games-data.tgz .'
-    ```
+The API requires a JWT secret to be set.
 
-  - Teammate import:
+```bash
+# Create the .env file
+cp apps/api/.env.example apps/api/.env
+# Make sure JWT_SECRET is set in the file
+```
 
-    ```bash
-    docker volume create ft_transcendence_games-data
-    docker run --rm -v ft_transcendence_games-data:/data -v "$PWD":/backup alpine \
-      sh -c 'cd /data && tar xzf /backup/games-data.tgz'
-    ```
+**2. Frontend can't connect to API (registration/login fails)**
+
+The frontend needs to know where the API is located.
+
+```bash
+# Create frontend .env
+echo "VITE_API_BASE_URL=http://localhost:4001" > apps/game/.env
+# Restart the dev server
+```
+
+**3. Port 4001 already in use**
+
+Another process is using the API port.
+
+```bash
+# Kill process on port 4001
+lsof -ti:4001 | xargs kill -9
+
+# Or use local-only mode
+pnpm run dev:local
+
+# Or change port
+PORT=4101 pnpm run dev:api
+```
+
+**4. Docker container won't start**
+
+```bash
+# Full reset
+pnpm run rebuild
+
+# Or manually
+docker compose down -v --rmi local --remove-orphans
+docker compose build --no-cache
+docker compose up -d
+```
+
+**5. Teammates see empty database**
+
+Docker volumes are local. Share a snapshot:
+
+```bash
+# Export (sender)
+docker run --rm -v ft_transcendence_games-data:/data -v "$PWD":/backup alpine \
+  sh -c 'cd /data && tar czf /backup/games-data.tgz .'
+
+# Import (receiver)
+docker volume create ft_transcendence_games-data
+docker run --rm -v ft_transcendence_games-data:/data -v "$PWD":/backup alpine \
+  sh -c 'cd /data && tar xzf /backup/games-data.tgz'
+```
+
+## License
+
+MIT License
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
