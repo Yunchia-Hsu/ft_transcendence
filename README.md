@@ -4,7 +4,9 @@ A full-featured online Pong game platform with real-time multiplayer, tournament
 
 ## Demo
 
-Watch the demo video: [https://youtu.be/DNij0lZR4IU](https://youtu.be/DNij0lZR4IU)
+[![Watch the demo](https://img.youtube.com/vi/DNij0lZR4IU/maxresdefault.jpg)](https://youtu.be/DNij0lZR4IU)
+
+*Click the image above to watch the demo video*
 
 ## Table of Contents
 - [Features](#features)
