@@ -80,7 +80,7 @@ A full-featured online Pong game platform with real-time multiplayer, tournament
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/Yunchia-Hsu/ft_transcendence.git
 cd ponggame
 
 # Install dependencies
